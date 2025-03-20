@@ -93,7 +93,7 @@ while true; do
 	if ((MISSILES == 0)) && ((current_time - LAST_RELOAD_TIME >= RELOAD_TIME)); then
 		MISSILES=20
 		LAST_RELOAD_TIME=$current_time
-		echo "$(date '+%Y-%m-%d %H:%M:%S.%3N') Боезапас пополнен!"
+		echo "$(date '+%d-%m %H:%M:%S.%3N') Боезапас пополнен!"
 	fi
 
 	unset FIRST_TARGET_FILE
@@ -128,10 +128,10 @@ while true; do
 			echo "$filename" >>"$PROCESSED_FILES"
 
 			if [[ -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
-				echo "$(date '+%Y-%m-%d %H:%M:%S.%3N') Цель ID:$target_id промах ЗРДН 1 при выстреле ${TARGET_SHOT_TIME[$target_id]}"
+				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах ЗРДН 1 при выстреле ${TARGET_SHOT_TIME[$target_id]}"
 				msg_file="$SHOOTING_DIR/$(generate_random_filename)"
-				echo "$ZRDN_NUM $target_id 0 ${TARGET_SHOT_TIME[$target_id]}" >"$msg_file"
-				echo "ЗРДН $ZRDN_NUM выстрел по цели $target_id - промах в ${TARGET_SHOT_TIME[$target_id]}" >>"$ZRDN_LOG"
+				echo "${TARGET_SHOT_TIME[$target_id]} $ZRDN_NUM $target_id 0" >"$msg_file"
+				echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$target_id - промах!" >>"$ZRDN_LOG"
 				TARGET_SHOT_TIME["$target_id"]=0
 			fi
 
@@ -154,28 +154,28 @@ while true; do
 						TARGET_TYPE["$target_id"]="$target_type"
 
 						if [[ "${TARGET_TYPE[$target_id]}" != "ББ бал. ракеты" ]]; then
-							detection_time=$(date '+%Y-%m-%d %H:%M:%S.%3N')
-							echo "$detection_time Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
+							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
 							msg_file="$DETECTIONS_DIR/$(generate_random_filename)"
-							echo "$ZRDN_NUM $target_id $speed $detection_time" >"$msg_file"
-							echo "ЗРДН $ZRDN_NUM обнаружена цель $target_id в $detection_time" >>"$ZRDN_LOG"
+							echo "$detection_time $ZRDN_NUM $target_id $speed" >"$msg_file"
+							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id скорость: $speed м/с" >>"$ZRDN_LOG"
 						fi
 					fi
 
 					if [[ "$target_type" != "ББ бал. ракеты" ]]; then
 						if ((MISSILES > 0)); then
-							shot_time=$(date '+%Y-%m-%d %H:%M:%S.%3N')
-							echo "$shot_time Атака цели ID:$target_id - Выстрел!"
+							shot_time=$(date '+%d-%m %H:%M:%S.%3N')
+							echo "$shot_time ЗРДН$ZRDN_NUM Атака цели ID:$target_id - Выстрел!"
 							echo "ЗРДН 1" >"$DESTROY_DIR/$target_id"
 							((MISSILES--))
 							TARGET_SHOT_TIME["$target_id"]="$shot_time"
 
 							if ((MISSILES == 0)); then
 								LAST_RELOAD_TIME=$(date +%s)
-								echo "$(date '+%Y-%m-%d %H:%M:%S.%3N') Боезапас исчерпан! Начинается перезарядка"
+								echo "$(date '+%d-%m %H:%M:%S.%3N') ЗРДН$ZRDN_NUM Боезапас исчерпан! Начинается перезарядка"
 							fi
 						else
-							echo "$(date '+%Y-%m-%d %H:%M:%S.%3N') Невозможно атаковать ID:$target_id - Боезапас исчерпан!"
+							echo "$(date '+%d-%m %H:%M:%S.%3N') ЗРДН$ZRDN_NUM Невозможно атаковать ID:$target_id - Боезапас исчерпан!"
 						fi
 					fi
 				fi
@@ -192,10 +192,10 @@ while true; do
 		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
 			if [[ -n "${TARGET_TYPE[$id]}" && "${TARGET_TYPE[$id]}" != "ББ бал. ракеты" ]]; then
 				if [[ -n "${TARGET_SHOT_TIME[$id]}" ]]; then
-					echo "$(date '+%Y-%m-%d %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН 1 при выстреле ${TARGET_SHOT_TIME[$id]}"
+					echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН 1 при выстреле ${TARGET_SHOT_TIME[$id]}"
 					msg_file="$SHOOTING_DIR/$(generate_random_filename)"
-					echo "$ZRDN_NUM $id 1 ${TARGET_SHOT_TIME[$id]}" >"$msg_file"
-					echo "ЗРДН $ZRDN_NUM выстрел по цели $id - уничтожено в ${TARGET_SHOT_TIME[$id]}" >>"$ZRDN_LOG"
+					echo "${TARGET_SHOT_TIME[$id]} $ZRDN_NUM $id 1" >"$msg_file"
+					echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожено!" >>"$ZRDN_LOG"
 				fi
 			fi
 			unset TARGET_COORDS["$id"]
@@ -205,4 +205,10 @@ while true; do
 	done
 
 	check_and_process_ping &
+	total_lines=$(wc -l < "$ZRDN_LOG")
+	if (( total_lines > 100 )); then
+		temp_file=$(mktemp)  # Временный файл
+		tail -n 100 "$ZRDN_LOG" > "$temp_file"
+		mv "$temp_file" "$ZRDN_LOG"
+	fi
 done
