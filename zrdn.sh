@@ -12,17 +12,17 @@ DESTROY_DIR="/tmp/GenTargets/Destroy"
 
 # Путь к файлу с обработанными целями
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
-PROCESSED_FILES="$SCRIPT_DIR/temp/zrdn1_processed_files.txt"
+PROCESSED_FILES="$SCRIPT_DIR/temp/zrdn${ZRDN_NUM}_processed_files.txt"
 >"$PROCESSED_FILES" # Очистка файла при запуске
 
 # Определяем папку для сообщений и логов
 MESSAGES_DIR="$SCRIPT_DIR/messages"
-ZRDN_LOG="$SCRIPT_DIR/logs/zrdn1_log.txt"
+ZRDN_LOG="$SCRIPT_DIR/logs/zrdn${ZRDN_NUM}_log.txt"
 >"$ZRDN_LOG" # Очистка файла при запуске
 
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
 SHOOTING_DIR="$MESSAGES_DIR/shooting"
-CHECK_DIR="$MESSAGES_DIR/shooting"
+CHECK_DIR="$MESSAGES_DIR/check"
 mkdir -p "$DETECTIONS_DIR"
 mkdir -p "$SHOOTING_DIR"
 mkdir -p "$CHECK_DIR"
@@ -47,11 +47,11 @@ generate_random_filename() {
 
 # Проверка на существование
 check_and_process_ping() {
-	ping_file=$(find "$CHECK_DIR" -type f -name "ping_zrdn1")
+	ping_file=$(find "$CHECK_DIR" -type f -name "ping_zrdn$ZRDN_NUM")
 
 	if [[ -n "$ping_file" ]]; then
 		rm -f "$ping_file"
-		pong_file="$CHECK_DIR/pong_zrdn1"
+		pong_file="$CHECK_DIR/pong_zrdn$ZRDN_NUM"
 	fi
 }
 
@@ -85,7 +85,8 @@ decode_target_id() {
 	echo -n "$decoded_hex" | xxd -r -p
 }
 
-echo "ЗРДН 1 запущена!"
+echo "ЗРДН${ZRDN_NUM} запущена!"
+find "$MESSAGES_DIR" -type f -name "zrdn${ZRDN_NUM}*" -exec rm -f {} \;
 while true; do
 	current_time=$(date +%s)
 
@@ -128,9 +129,9 @@ while true; do
 			echo "$filename" >>"$PROCESSED_FILES"
 
 			if [[ -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
-				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах ЗРДН 1 при выстреле ${TARGET_SHOT_TIME[$target_id]}"
-				msg_file="$SHOOTING_DIR/$(generate_random_filename)"
-				echo "${TARGET_SHOT_TIME[$target_id]} $ZRDN_NUM $target_id 0" >"$msg_file"
+				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$target_id]}"
+				msg_file="$SHOOTING_DIR/zrdn${ZRDN_NUM}$(generate_random_filename)"
+				echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM $target_id 0" >"$msg_file"
 				echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$target_id - промах!" >>"$ZRDN_LOG"
 				unset TARGET_SHOT_TIME["$target_id"]
 			fi
@@ -156,9 +157,9 @@ while true; do
 						if [[ "${TARGET_TYPE[$target_id]}" != "ББ бал. ракеты" ]]; then
 							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
 							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-							msg_file="$DETECTIONS_DIR/$(generate_random_filename)"
-							echo "$detection_time $ZRDN_NUM $target_id $speed" >"$msg_file"
-							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id скорость: $speed м/с" >>"$ZRDN_LOG"
+							msg_file="$DETECTIONS_DIR/zrdn${ZRDN_NUM}$(generate_random_filename)"
+							echo "$detection_time ЗРДН$ZRDN_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" >"$msg_file"
+							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$ZRDN_LOG"
 						fi
 					fi
 
@@ -192,9 +193,9 @@ while true; do
 		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
 			if [[ -n "${TARGET_TYPE[$id]}" && "${TARGET_TYPE[$id]}" != "ББ бал. ракеты" ]]; then
 				if [[ -n "${TARGET_SHOT_TIME[$id]}" ]]; then
-					echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН 1 при выстреле ${TARGET_SHOT_TIME[$id]}"
-					msg_file="$SHOOTING_DIR/$(generate_random_filename)"
-					echo "${TARGET_SHOT_TIME[$id]} $ZRDN_NUM $id 1" >"$msg_file"
+					echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$id]}"
+					msg_file="$SHOOTING_DIR/zrdn${ZRDN_NUM}$(generate_random_filename)"
+					echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM $id 1" >"$msg_file"
 					echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожено!" >>"$ZRDN_LOG"
 				fi
 			fi
