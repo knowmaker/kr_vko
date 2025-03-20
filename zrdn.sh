@@ -102,7 +102,7 @@ while true; do
 
 	while ! $found_second_file; do
 		# Получаем последние MAX_FILES файлов, отсортированные по времени
-		mapfile -t latest_files < <(find "$TARGETS_DIR" -type f -printf "%T@ %p\n" | sort -nr | head -n "$MAX_FILES" | cut -d' ' -f2-)
+		mapfile -t latest_files < <(find "$TARGETS_DIR" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n "$MAX_FILES" | cut -d' ' -f2-)
 
 		for target_file in "${latest_files[@]}"; do
 			filename=$(basename "$target_file")
@@ -132,7 +132,7 @@ while true; do
 				msg_file="$SHOOTING_DIR/$(generate_random_filename)"
 				echo "${TARGET_SHOT_TIME[$target_id]} $ZRDN_NUM $target_id 0" >"$msg_file"
 				echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$target_id - промах!" >>"$ZRDN_LOG"
-				TARGET_SHOT_TIME["$target_id"]=0
+				unset TARGET_SHOT_TIME["$target_id"]
 			fi
 
 			x=$(grep -oP 'X:\s*\K\d+' "$target_file")
