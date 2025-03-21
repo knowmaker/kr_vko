@@ -109,6 +109,7 @@ decode_target_id() {
 echo "ЗРДН${ZRDN_NUM} запущена!"
 
 cleanup() {
+	echo ""
     echo "ЗРДН$ZRDN_NUM остановлена!"
     exit 0
 }
