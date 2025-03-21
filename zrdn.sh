@@ -1,10 +1,16 @@
 #!/bin/bash
 
-ZRDN_NUM=1
-# Координаты и радиус действия ЗРДН
-ZRDN_X=9200000
-ZRDN_Y=4500000
-ZRD_RADIUS=2000000 # Радиус в метрах
+# ./zrdn.sh 1 9200000 4500000 2000000
+# Проверяем, переданы ли параметры
+if [[ $# -ne 4 ]]; then
+    echo "Использование: $0 <Номер_ЗРДН> <X_координата> <Y_координата> <Радиус действия>"
+    exit 1
+fi
+
+ZRDN_NUM=$1
+ZRDN_X=$2
+ZRDN_Y=$3
+ZRD_RADIUS=$4
 
 # Каталоги
 TARGETS_DIR="/tmp/GenTargets/Targets"
@@ -101,6 +107,14 @@ decode_target_id() {
 }
 
 echo "ЗРДН${ZRDN_NUM} запущена!"
+
+cleanup() {
+    echo "ЗРДН$ZRDN_NUM остановлена!"
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
 find "$MESSAGES_DIR" -type f -name "zrdn${ZRDN_NUM}*" -exec rm -f {} \;
 while true; do
 	current_time=$(date +%s)
