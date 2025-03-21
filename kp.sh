@@ -9,7 +9,7 @@ SHOOTING_DIR="$MESSAGES_DIR/shooting"
 # Создание базы данных и таблиц, если они не существуют
 initialize_database() {
 	if [[ -f "$DB_FILE" ]]; then
-        echo "База данных существует, удаляем"
+		echo "База данных существует, удаляем"
 		rm -f "$DB_FILE"
 	fi
 
@@ -47,6 +47,29 @@ initialize_database() {
 EOF
 }
 
+# Функция для расшифровки и проверки файла
+decrypt_and_verify_message() {
+	local file_path="$1"
+	local file_content=$(<"$file_path")
+
+	# Извлекаем контрольную сумму и зашифрованный текст
+	local saved_checksum=$(echo "$file_content" | head -n1 | cut -d' ' -f1)
+	local encrypted_content=$(echo "$file_content" | cut -d' ' -f2-)
+
+	# Декодируем обратно в текст
+	local decrypted_content=$(echo -n "$encrypted_content" | base64 -d)
+
+	# Вычисляем хеш и сверяем
+	local calculated_checksum=$(echo -n "$decrypted_content" | sha256sum | cut -d' ' -f1)
+
+	if [ "$saved_checksum" = "$calculated_checksum" ]; then
+		echo "$decrypted_content"
+	else
+		echo "ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ! ДАННЫЕ ПОВРЕЖДЕНЫ! ВОЗМОЖЕН НСД!" >&2
+		return 1
+	fi
+}
+
 # Функция для получения ID системы (добавляет в базу, если ее нет)
 get_system_id() {
 	local system_name="$1"
@@ -65,15 +88,17 @@ get_system_id() {
 # Функция для обработки файлов обнаружений (detections)
 process_detections() {
 	for file in "$DETECTIONS_DIR"/*; do
-		[[ -f "$file" ]] || continue
+        [[ -f "$file" ]] || continue
 
-		timestamp=$(cut -d' ' -f1,2 "$file")
-        system_id=$(cut -d' ' -f3 "$file")
-        target_id=$(cut -d' ' -f4 "$file")
-        speed=$(cut -d' ' -f5 "$file")
-        target_type=$(cut -d' ' -f6- "$file")
+		decrypted_content=$(decrypt_and_verify_message "$file") || continue
 
-        echo "$timestamp $system_id $target_id $speed $target_type"
+		timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
+		system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
+		target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
+		speed=$(echo "$decrypted_content" | cut -d' ' -f5)
+		target_type=$(echo "$decrypted_content" | cut -d' ' -f6-)
+
+		echo "$timestamp $system_id $target_id $speed $target_type"
 
 		sqlite3 "$DB_FILE" "INSERT OR IGNORE INTO targets (id, speed, ttype, direction) VALUES ('$target_id', $speed, '$target_type', NULL);"
 
@@ -90,12 +115,14 @@ process_shooting() {
 	for file in "$SHOOTING_DIR"/*; do
 		[[ -f "$file" ]] || continue
 
-	    timestamp=$(cut -d' ' -f1,2 "$file")
-        system_id=$(cut -d' ' -f3 "$file")
-        target_id=$(cut -d' ' -f4 "$file")
-        result=$(cut -d' ' -f5 "$file")
+		decrypted_content=$(decrypt_and_verify_message "$file") || continue
 
-        echo "$timestamp $system_id $target_id $result"
+		timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
+		system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
+		target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
+		result=$(echo "$decrypted_content" | cut -d' ' -f5)
+
+		echo "$timestamp $system_id $target_id $result"
 
 		target_exists=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM targets WHERE id='$target_id';")
 
