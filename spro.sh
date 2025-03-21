@@ -1,16 +1,15 @@
 #!/bin/bash
 
-# ./zrdn.sh 1 9200000 4500000 2000000
+# ./spro.sh 1200000 3150000 3750000
 # Проверяем, переданы ли параметры
-if [[ $# -ne 4 ]]; then
-    echo "Использование: $0 <Номер_ЗРДН> <X_координата> <Y_координата> <Радиус действия>"
+if [[ $# -ne 3 ]]; then
+    echo "Использование: $0 <X_координата> <Y_координата> <Радиус действия>"
     exit 1
 fi
 
-ZRDN_NUM=$1
-ZRDN_X=$2
-ZRDN_Y=$3
-ZRD_RADIUS=$4
+SPRO_X=$1
+SPRO_Y=$2
+SPRO_RADIUS=$3
 
 # Каталоги
 TARGETS_DIR="/tmp/GenTargets/Targets"
@@ -18,13 +17,13 @@ DESTROY_DIR="/tmp/GenTargets/Destroy"
 
 # Путь к файлу с обработанными целями
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
-PROCESSED_FILES="$SCRIPT_DIR/temp/zrdn${ZRDN_NUM}_processed_files.txt"
+PROCESSED_FILES="$SCRIPT_DIR/temp/spro_processed_files.txt"
 >"$PROCESSED_FILES" # Очистка файла при запуске
 
 # Определяем папку для сообщений и логов
 MESSAGES_DIR="$SCRIPT_DIR/messages"
-ZRDN_LOG="$SCRIPT_DIR/logs/zrdn${ZRDN_NUM}_log.txt"
->"$ZRDN_LOG" # Очистка файла при запуске
+SPRO_LOG="$SCRIPT_DIR/logs/spro_log.txt"
+>"$SPRO_LOG" # Очистка файла при запуске
 
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
 SHOOTING_DIR="$MESSAGES_DIR/shooting"
@@ -34,8 +33,8 @@ mkdir -p "$SHOOTING_DIR"
 mkdir -p "$CHECK_DIR"
 
 # Боезапас и время пополнения
-MISSILES=20
-RELOAD_TIME=10     # Время до пополнения (в секундах)
+MISSILES=10
+RELOAD_TIME=20     # Время до пополнения (в секундах)
 LAST_RELOAD_TIME=0 # Временная метка последней перезарядки
 
 # Количество файлов для анализа
@@ -55,7 +54,7 @@ encrypt_and_save_message() {
     local dir_path="$1"
     local content="$2"
 
-    local filename="zrdn${ZRDN_NUM}$(generate_random_filename)"
+    local filename="spro$(generate_random_filename)"
     local file_path="${dir_path}${filename}"
 
     # Создаём контрольную сумму SHA-256
@@ -68,11 +67,11 @@ encrypt_and_save_message() {
 
 # Проверка на существование
 check_and_process_ping() {
-	ping_file=$(find "$CHECK_DIR" -type f -name "ping_zrdn$ZRDN_NUM")
+	ping_file=$(find "$CHECK_DIR" -type f -name "ping_spro")
 
 	if [[ -n "$ping_file" ]]; then
 		rm -f "$ping_file"
-		pong_file="$CHECK_DIR/pong_zrdn$ZRDN_NUM"
+		pong_file="$CHECK_DIR/pong_spro"
 	fi
 }
 
@@ -106,23 +105,23 @@ decode_target_id() {
 	echo -n "$decoded_hex" | xxd -r -p
 }
 
-echo "ЗРДН${ZRDN_NUM} запущена!"
+echo "СПРО запущена!"
 
 cleanup() {
 	echo ""
-    echo "ЗРДН$ZRDN_NUM остановлена!"
+    echo "СПРО остановлена!"
     exit 0
 }
 
 trap cleanup SIGINT SIGTERM
 
-find "$MESSAGES_DIR" -type f -name "zrdn${ZRDN_NUM}*" -exec rm -f {} \;
+find "$MESSAGES_DIR" -type f -name "spro*" -exec rm -f {} \;
 while true; do
 	current_time=$(date +%s)
 
 	# Проверяем пополнение боезапаса
 	if ((MISSILES == 0)) && ((current_time - LAST_RELOAD_TIME >= RELOAD_TIME)); then
-		MISSILES=20
+		MISSILES=10
 		LAST_RELOAD_TIME=$current_time
 		echo "$(date '+%d-%m %H:%M:%S.%3N') Боезапас пополнен!"
 	fi
@@ -158,18 +157,18 @@ while true; do
 			FIRST_TARGET_FILE["$target_id"]="$target_file"
 			echo "$filename" >>"$PROCESSED_FILES"
 
-			if [[ -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
-				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$target_id]}"
-				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM $target_id 0" &
-				echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$target_id - промах!" >>"$ZRDN_LOG"
+			if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" && -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
+				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах СПРО при выстреле ${TARGET_SHOT_TIME[$target_id]}"
+				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$target_id]} СПРО $target_id 0" &
+				echo "${TARGET_SHOT_TIME[$target_id]} СПРО Выстрел по цели ID:$target_id - промах!" >>"$SPRO_LOG"
 				unset TARGET_SHOT_TIME["$target_id"]
 			fi
 
 			x=$(grep -oP 'X:\s*\K\d+' "$target_file")
 			y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
 
-			dist_to_target=$(distance "$ZRDN_X" "$ZRDN_Y" "$x" "$y")
-			if (($(echo "$dist_to_target <= $ZRD_RADIUS" | bc -l))); then
+			dist_to_target=$(distance "$SPRO_X" "$SPRO_Y" "$x" "$y")
+			if (($(echo "$dist_to_target <= $SPRO_RADIUS" | bc -l))); then
 				if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
 					if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
 						prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
@@ -179,28 +178,28 @@ while true; do
 						target_type=$(get_target_type "$speed")
 						TARGET_TYPE["$target_id"]="$target_type"
 
-						if [[ "${TARGET_TYPE[$target_id]}" == "Крылатая ракета" || "${TARGET_TYPE[$target_id]}" == "Самолет" ]]; then
+						if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" ]]; then
 							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
-							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time ЗРДН$ZRDN_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
-							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$ZRDN_LOG"
+							echo "$detection_time СПРО Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time СПРО $target_id $speed ${TARGET_TYPE[$target_id]}" &
+							echo "$detection_time СПРО Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$SPRO_LOG"
 						fi
 					fi
 
-					if [[ "${TARGET_TYPE[$target_id]}" == "Крылатая ракета" || "${TARGET_TYPE[$target_id]}" == "Самолет" ]]; then
+					if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" ]]; then
 						if ((MISSILES > 0)); then
 							shot_time=$(date '+%d-%m %H:%M:%S.%3N')
-							echo "$shot_time ЗРДН$ZRDN_NUM Атака цели ID:$target_id - Выстрел!"
-							echo "ЗРДН$ZRDN_NUM" >"$DESTROY_DIR/$target_id"
+							echo "$shot_time СПРО Атака цели ID:$target_id - Выстрел!"
+							echo "СПРО" >"$DESTROY_DIR/$target_id"
 							((MISSILES--))
 							TARGET_SHOT_TIME["$target_id"]="$shot_time"
 
 							if ((MISSILES == 0)); then
 								LAST_RELOAD_TIME=$(date +%s)
-								echo "$(date '+%d-%m %H:%M:%S.%3N') ЗРДН$ZRDN_NUM Боезапас исчерпан! Начинается перезарядка"
+								echo "$(date '+%d-%m %H:%M:%S.%3N') СПРО Боезапас исчерпан! Начинается перезарядка"
 							fi
 						else
-							echo "$(date '+%d-%m %H:%M:%S.%3N') ЗРДН$ZRDN_NUM Невозможно атаковать ID:$target_id - Боезапас исчерпан!"
+							echo "$(date '+%d-%m %H:%M:%S.%3N') СПРО Невозможно атаковать ID:$target_id - Боезапас исчерпан!"
 						fi
 					fi
 				fi
@@ -215,12 +214,10 @@ while true; do
 
 	for id in "${!TARGET_COORDS[@]}"; do
 		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
-			if [[ "${TARGET_TYPE[$id]}" == "Крылатая ракета" || "${TARGET_TYPE[$id]}" == "Самолет" ]]; then
-				if [[ -n "${TARGET_SHOT_TIME[$id]}" ]]; then
-					echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$id]}"
-					encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM $id 1" &
-					echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожена!" >>"$ZRDN_LOG"
-				fi
+			if [[ "${TARGET_TYPE[$id]}" == "ББ БР" && -n "${TARGET_SHOT_TIME[$id]}" ]]; then
+                echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена СПРО при выстреле ${TARGET_SHOT_TIME[$id]}"
+                encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} СПРО $id 1" &
+                echo "${TARGET_SHOT_TIME[$id]} СПРО Выстрел по цели ID:$id - уничтожена!" >>"$SPRO_LOG"
 			fi
 			unset TARGET_COORDS["$id"]
 			unset TARGET_TYPE["$id"]
@@ -229,10 +226,10 @@ while true; do
 	done
 
 	check_and_process_ping &
-	total_lines=$(wc -l < "$ZRDN_LOG")
+	total_lines=$(wc -l < "$SPRO_LOG")
 	if (( total_lines > 100 )); then
 		temp_file=$(mktemp)  # Временный файл
-		tail -n 100 "$ZRDN_LOG" > "$temp_file"
-		mv "$temp_file" "$ZRDN_LOG"
+		tail -n 100 "$SPRO_LOG" > "$temp_file"
+		mv "$temp_file" "$SPRO_LOG"
 	fi
 done
