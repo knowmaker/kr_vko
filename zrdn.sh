@@ -3,8 +3,8 @@
 # ./zrdn.sh 1 9200000 4500000 2000000
 # Проверяем, переданы ли параметры
 if [[ $# -ne 4 ]]; then
-    echo "Использование: $0 <Номер_ЗРДН> <X_координата> <Y_координата> <Радиус действия>"
-    exit 1
+	echo "Использование: $0 <Номер_ЗРДН> <X_координата> <Y_координата> <Радиус действия>"
+	exit 1
 fi
 
 ZRDN_NUM=$1
@@ -52,18 +52,18 @@ generate_random_filename() {
 }
 
 encrypt_and_save_message() {
-    local dir_path="$1"
-    local content="$2"
+	local dir_path="$1"
+	local content="$2"
 
-    local filename="zrdn${ZRDN_NUM}$(generate_random_filename)"
-    local file_path="${dir_path}${filename}"
+	local filename="zrdn${ZRDN_NUM}$(generate_random_filename)"
+	local file_path="${dir_path}${filename}"
 
-    # Создаём контрольную сумму SHA-256
-    local checksum=$(echo -n "$content" | sha256sum | cut -d' ' -f1)
-    # Шифрование base64
-    local encrypted_content=$(echo -n "$content" | base64)
+	# Создаём контрольную сумму SHA-256
+	local checksum=$(echo -n "$content" | sha256sum | cut -d' ' -f1)
+	# Шифрование base64
+	local encrypted_content=$(echo -n "$content" | base64)
 
-    echo "$checksum $encrypted_content" > "$file_path"
+	echo "$checksum $encrypted_content" >"$file_path"
 }
 
 # Проверка на существование
@@ -110,8 +110,8 @@ echo "ЗРДН${ZRDN_NUM} запущена!"
 
 cleanup() {
 	echo ""
-    echo "ЗРДН$ZRDN_NUM остановлена!"
-    exit 0
+	echo "ЗРДН$ZRDN_NUM остановлена!"
+	exit 0
 }
 
 trap cleanup SIGINT SIGTERM
@@ -158,7 +158,7 @@ while true; do
 			FIRST_TARGET_FILE["$target_id"]="$target_file"
 			echo "$filename" >>"$PROCESSED_FILES"
 
-			if [[ -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
+			if [[ ("${TARGET_TYPE[$target_id]}" == "Крылатая ракета" || "${TARGET_TYPE[$target_id]}" == "Самолет") && -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
 				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$target_id]}"
 				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM $target_id 0" &
 				echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$target_id - промах!" >>"$ZRDN_LOG"
@@ -215,12 +215,10 @@ while true; do
 
 	for id in "${!TARGET_COORDS[@]}"; do
 		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
-			if [[ "${TARGET_TYPE[$id]}" == "Крылатая ракета" || "${TARGET_TYPE[$id]}" == "Самолет" ]]; then
-				if [[ -n "${TARGET_SHOT_TIME[$id]}" ]]; then
-					echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$id]}"
-					encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM $id 1" &
-					echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожена!" >>"$ZRDN_LOG"
-				fi
+			if [[ ("${TARGET_TYPE[$id]}" == "Крылатая ракета" || "${TARGET_TYPE[$id]}" == "Самолет") && -n "${TARGET_SHOT_TIME[$id]}" ]]; then
+				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$id]}"
+				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM $id 1" &
+				echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожена!" >>"$ZRDN_LOG"
 			fi
 			unset TARGET_COORDS["$id"]
 			unset TARGET_TYPE["$id"]
@@ -229,10 +227,10 @@ while true; do
 	done
 
 	check_and_process_ping &
-	total_lines=$(wc -l < "$ZRDN_LOG")
-	if (( total_lines > 100 )); then
-		temp_file=$(mktemp)  # Временный файл
-		tail -n 100 "$ZRDN_LOG" > "$temp_file"
+	total_lines=$(wc -l <"$ZRDN_LOG")
+	if ((total_lines > 100)); then
+		temp_file=$(mktemp) # Временный файл
+		tail -n 100 "$ZRDN_LOG" >"$temp_file"
 		mv "$temp_file" "$ZRDN_LOG"
 	fi
 done
