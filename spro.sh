@@ -10,7 +10,7 @@ fi
 ZRDN_NUM=$1
 ZRDN_X=$2
 ZRDN_Y=$3
-ZRDN_RADIUS=$4
+ZRD_RADIUS=$4
 
 # Каталоги
 TARGETS_DIR="/tmp/GenTargets/Targets"
@@ -169,7 +169,7 @@ while true; do
 			y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
 
 			dist_to_target=$(distance "$ZRDN_X" "$ZRDN_Y" "$x" "$y")
-			if (($(echo "$dist_to_target <= $ZRDN_RADIUS" | bc -l))); then
+			if (($(echo "$dist_to_target <= $ZRD_RADIUS" | bc -l))); then
 				if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
 					if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
 						prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
