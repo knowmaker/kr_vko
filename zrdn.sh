@@ -146,8 +146,6 @@ while true; do
 			if [[ -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
 				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$target_id]}"
 				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM $target_id 0" &
-				# msg_file="$SHOOTING_DIR/zrdn${ZRDN_NUM}$(generate_random_filename)"
-				# echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM $target_id 0" >"$msg_file"
 				echo "${TARGET_SHOT_TIME[$target_id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$target_id - промах!" >>"$ZRDN_LOG"
 				unset TARGET_SHOT_TIME["$target_id"]
 			fi
@@ -158,10 +156,6 @@ while true; do
 			dist_to_target=$(distance "$ZRDN_X" "$ZRDN_Y" "$x" "$y")
 			if (($(echo "$dist_to_target <= $ZRD_RADIUS" | bc -l))); then
 				if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
-					if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" ]]; then
-						continue
-					fi
-
 					if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
 						prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
 						prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
@@ -170,17 +164,15 @@ while true; do
 						target_type=$(get_target_type "$speed")
 						TARGET_TYPE["$target_id"]="$target_type"
 
-						if [[ "${TARGET_TYPE[$target_id]}" != "ББ БР" ]]; then
+						if [[ "${TARGET_TYPE[$target_id]}" == "Крылатая ракета" || "${TARGET_TYPE[$target_id]}" == "Самолет" ]]; then
 							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
 							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
 							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time ЗРДН$ZRDN_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
-							# msg_file="$DETECTIONS_DIR/zrdn${ZRDN_NUM}$(generate_random_filename)"
-							# echo "$detection_time ЗРДН$ZRDN_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" >"$msg_file"
 							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$ZRDN_LOG"
 						fi
 					fi
 
-					if [[ "$target_type" != "ББ БР" ]]; then
+					if [[ "${TARGET_TYPE[$target_id]}" == "Крылатая ракета" || "${TARGET_TYPE[$target_id]}" == "Самолет" ]]; then
 						if ((MISSILES > 0)); then
 							shot_time=$(date '+%d-%m %H:%M:%S.%3N')
 							echo "$shot_time ЗРДН$ZRDN_NUM Атака цели ID:$target_id - Выстрел!"
@@ -208,13 +200,11 @@ while true; do
 
 	for id in "${!TARGET_COORDS[@]}"; do
 		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
-			if [[ -n "${TARGET_TYPE[$id]}" && "${TARGET_TYPE[$id]}" != "ББ БР" ]]; then
+			if [[ "${TARGET_TYPE[$id]}" == "Крылатая ракета" || "${TARGET_TYPE[$id]}" == "Самолет" ]]; then
 				if [[ -n "${TARGET_SHOT_TIME[$id]}" ]]; then
 					echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$id]}"
 					encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM $id 1" &
-					# msg_file="$SHOOTING_DIR/zrdn${ZRDN_NUM}$(generate_random_filename)"
-					# echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM $id 1" >"$msg_file"
-					echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожено!" >>"$ZRDN_LOG"
+					echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожена!" >>"$ZRDN_LOG"
 				fi
 			fi
 			unset TARGET_COORDS["$id"]
