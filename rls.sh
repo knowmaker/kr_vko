@@ -70,6 +70,7 @@ check_and_process_ping() {
 	if [[ -n "$ping_file" ]]; then
 		rm -f "$ping_file"
 		pong_file="$CHECK_DIR/pong_rls$RLS_NUM"
+		touch "$pong_file"
 	fi
 }
 
@@ -166,8 +167,7 @@ decode_target_id() {
 echo "РЛС${RLS_NUM} запущена!"
 
 cleanup() {
-	echo ""
-	echo "РЛС$RLS_NUM остановлена!"
+	echo -e "\nРЛС$RLS_NUM остановлена!"
 	exit 0
 }
 
@@ -242,16 +242,16 @@ while true; do
 		done
 
 		if ! $found_second_file; then
-			sleep 0.1
+			sleep 0.01
 		fi
 	done
 
-	# for id in "${!TARGET_COORDS[@]}"; do
-	# 	if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
-	# 		unset TARGET_COORDS["$id"]
-	# 		unset TARGET_TYPE["$id"]
-	# 	fi
-	# done
+	for id in "${!TARGET_COORDS[@]}"; do
+		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
+			unset TARGET_COORDS["$id"]
+			unset TARGET_TYPE["$id"]
+		fi
+	done
 
 	check_and_process_ping &
 	total_lines=$(wc -l <"$RLS_LOG")

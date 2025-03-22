@@ -72,6 +72,7 @@ check_and_process_ping() {
 	if [[ -n "$ping_file" ]]; then
 		rm -f "$ping_file"
 		pong_file="$CHECK_DIR/pong_spro"
+		touch "$pong_file"
 	fi
 }
 
@@ -108,8 +109,7 @@ decode_target_id() {
 echo "СПРО запущена!"
 
 cleanup() {
-	echo ""
-    echo "СПРО остановлена!"
+    echo -e "\nСПРО остановлена!"
     exit 0
 }
 

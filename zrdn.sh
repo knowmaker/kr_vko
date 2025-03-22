@@ -73,6 +73,7 @@ check_and_process_ping() {
 	if [[ -n "$ping_file" ]]; then
 		rm -f "$ping_file"
 		pong_file="$CHECK_DIR/pong_zrdn$ZRDN_NUM"
+		touch "$pong_file"
 	fi
 }
 
@@ -109,8 +110,7 @@ decode_target_id() {
 echo "ЗРДН${ZRDN_NUM} запущена!"
 
 cleanup() {
-	echo ""
-	echo "ЗРДН$ZRDN_NUM остановлена!"
+	echo -e "\nЗРДН$ZRDN_NUM остановлена!"
 	exit 0
 }
 
