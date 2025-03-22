@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# ./rlc.sh 1 9200000 4500000 2000000
+# ./rls.sh 1 9200000 4500000 2000000 135 120
 # Проверяем, переданы ли параметры
-if [[ $# -ne 4 ]]; then
-	echo "Использование: $0 <Номер_РЛС> <X_координата> <Y_координата> <Радиус действия>"
+if [[ $# -ne 6 ]]; then
+	echo "Использование: $0 <Номер_РЛС> <X_координата> <Y_координата> <Радиус действия> <Азимут> <Угол обзора>"
 	exit 1
 fi
 
@@ -11,6 +11,12 @@ RLS_NUM=$1
 RLS_X=$2
 RLS_Y=$3
 RLS_RADIUS=$4
+RLS_ALPHA=$5
+RLS_ANGLE=$6
+
+SPRO_X=$7
+SPRO_Y=$8
+SPRO_RADUIS=$9
 
 # Каталоги
 TARGETS_DIR="/tmp/GenTargets/Targets"
@@ -73,6 +79,37 @@ distance() {
 	local dx=$((x2 - x1))
 	local dy=$((y2 - y1))
 	echo "scale=2; sqrt($dx * $dx + $dy * $dy)" | bc
+}
+
+# Функция вычисления попадания между лучами (используем bc)
+beam() {
+	local x=$1 y=$2 alpha=$3 angle=$4
+	local dx=$((x - RLS_X))
+	local dy=$((y - RLS_Y))
+
+	# Вычисление угла направления на цель (арктангенс в градусах)
+	local angle_to_target=$(echo "a($dy / $dx) * 180 / 4*a(1)" | bc -l)
+	if ((dx < 0)); then
+		angle_to_target=$(echo "$angle_to_target + 180" | bc -l)
+	elif ((dy < 0)); then
+		angle_to_target=$(echo "$angle_to_target + 360" | bc -l)
+	fi
+
+	# Приведение угла в диапазон (-180°, 180°)
+	local relative_angle=$(echo "$angle_to_target - $alpha" | bc -l)
+	if (($(echo "$relative_angle > 180" | bc -l))); then
+		relative_angle=$(echo "$relative_angle - 360" | bc -l)
+	elif (($(echo "$relative_angle < -180" | bc -l))); then
+		relative_angle=$(echo "$relative_angle + 360" | bc -l)
+	fi
+
+	# Проверка попадания в сектор
+	if (($(echo "$relative_angle >= -$angle / 2" | bc -l))) &&
+		(($(echo "$relative_angle <=  $angle / 2" | bc -l))); then
+		echo 1 # Истина (попадает в сектор)
+	else
+		echo 0 # Ложь (не попадает)
+	fi
 }
 
 # Функция для определения типа цели по скорости
@@ -144,7 +181,8 @@ while true; do
 			y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
 
 			dist_to_target=$(distance "$RLS_X" "$RLS_Y" "$x" "$y")
-			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))); then
+			target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
+			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))) && [[ "$target_in_angle" -eq 1 ]]; then
 				if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
 					if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
 						prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
@@ -154,15 +192,14 @@ while true; do
 						target_type=$(get_target_type "$speed")
 						TARGET_TYPE["$target_id"]="$target_type"
 
-                        detection_time=$(date '+%d-%m %H:%M:%S.%3N')
-                        echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-                        encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
-                        echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
-					fi
+						detection_time=$(date '+%d-%m %H:%M:%S.%3N')
+						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+						encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
+						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
 
-					if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" ]]; then
-                        detection_time=$(date '+%d-%m %H:%M:%S.%3N')
-                        echo "$detection_time РЛС$RLS_NUM ОСОБОЕ ВНИМАНИЕ ЦЕЛИ ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+						if [[ $target_type == "ББ БР" ]]; then
+							echo "$detection_time РЛС$RLS_NUM ОСОБОЕ ВНИМАНИЕ ЦЕЛИ ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+						fi
 					fi
 				fi
 				TARGET_COORDS["$target_id"]="$x,$y"
