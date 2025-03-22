@@ -6,6 +6,10 @@ MESSAGES_DIR="$SCRIPT_DIR/messages"
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
 SHOOTING_DIR="$MESSAGES_DIR/shooting"
 
+# Определяем папку для логов
+KP_LOG="$SCRIPT_DIR/logs/kp_log.txt"
+>"$KP_LOG" # Очистка файла при запуске
+
 # Создание базы данных и таблиц, если они не существуют
 initialize_database() {
 	if [[ -f "$DB_FILE" ]]; then
@@ -88,7 +92,7 @@ get_system_id() {
 # Функция для обработки файлов обнаружений (detections)
 process_detections() {
 	for file in "$DETECTIONS_DIR"/*; do
-        [[ -f "$file" ]] || continue
+		[[ -f "$file" ]] || continue
 
 		decrypted_content=$(decrypt_and_verify_message "$file") || continue
 
@@ -99,8 +103,18 @@ process_detections() {
 		target_type=$(echo "$decrypted_content" | cut -d' ' -f6-)
 
 		echo "$timestamp $system_id $target_id $speed $target_type"
+	
+		if [[ "$target_type" == "ББ БР-1" ]]; then
+			direction=1
+			target_type="ББ БР"
+			echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
+			echo "$timestamp $system_id Цель ID:$target_id движется в сторону СПРО" >>"$KP_LOG"
+		else
+			direction="NULL"
+			echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
+		fi
 
-		sqlite3 "$DB_FILE" "INSERT OR IGNORE INTO targets (id, speed, ttype, direction) VALUES ('$target_id', $speed, '$target_type', NULL);"
+		sqlite3 "$DB_FILE" "INSERT OR IGNORE INTO targets (id, speed, ttype, direction) VALUES ('$target_id', $speed, '$target_type', $direction);"
 
 		sys_id=$(get_system_id "$system_id")
 
@@ -123,6 +137,8 @@ process_shooting() {
 		result=$(echo "$decrypted_content" | cut -d' ' -f5)
 
 		echo "$timestamp $system_id $target_id $result"
+
+		echo "$timestamp $system_id Выстрел по цели ID:$target_id - $( [[ "$result" == "1" ]] && echo "уничтожена" || echo "промах" )!" >>"$KP_LOG"
 
 		target_exists=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM targets WHERE id='$target_id';")
 
