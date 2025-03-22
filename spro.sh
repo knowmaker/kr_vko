@@ -81,7 +81,7 @@ distance() {
 	local x1=$1 y1=$2 x2=$3 y2=$4
 	local dx=$((x2 - x1))
 	local dy=$((y2 - y1))
-	echo "scale=2; sqrt($dx * $dx + $dy * $dy)" | bc
+	echo "scale=0; sqrt($dx * $dx + $dy * $dy)" | bc
 }
 
 # Функция для определения типа цели по скорости
@@ -208,7 +208,7 @@ while true; do
 		done
 
 		if ! $found_second_file; then
-			sleep 0.1
+			sleep 0.01
 		fi
 	done
 

@@ -89,69 +89,63 @@ get_system_id() {
 	echo "$system_num"
 }
 
-# Функция для обработки файлов обнаружений (detections)
-process_detections() {
-	for file in "$DETECTIONS_DIR"/*; do
-		[[ -f "$file" ]] || continue
+# Функция обработки файла обнаружений
+process_detection() {
+	local decrypted_content="$1"
+	local file="$2"
 
-		decrypted_content=$(decrypt_and_verify_message "$file") || continue
+	timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
+	system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
+	target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
+	speed=$(echo "$decrypted_content" | cut -d' ' -f5)
+	target_type=$(echo "$decrypted_content" | cut -d' ' -f6-)
 
-		timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
-		system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
-		target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
-		speed=$(echo "$decrypted_content" | cut -d' ' -f5)
-		target_type=$(echo "$decrypted_content" | cut -d' ' -f6-)
+	echo "$timestamp $system_id $target_id $speed $target_type"
 
-		echo "$timestamp $system_id $target_id $speed $target_type"
-	
-		if [[ "$target_type" == "ББ БР-1" ]]; then
-			direction=1
-			target_type="ББ БР"
-			echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
-			echo "$timestamp $system_id Цель ID:$target_id движется в сторону СПРО" >>"$KP_LOG"
-		else
-			direction="NULL"
-			echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
-		fi
+	if [[ "$target_type" == "ББ БР-1" ]]; then
+		direction=1
+		target_type="ББ БР"
+		echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
+		echo "$timestamp $system_id Цель ID:$target_id движется в сторону СПРО" >>"$KP_LOG"
+	else
+		direction="NULL"
+		echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
+	fi
 
-		sqlite3 "$DB_FILE" "INSERT OR IGNORE INTO targets (id, speed, ttype, direction) VALUES ('$target_id', $speed, '$target_type', $direction);"
+	sqlite3 "$DB_FILE" "INSERT OR IGNORE INTO targets (id, speed, ttype, direction) VALUES ('$target_id', $speed, '$target_type', $direction);"
 
-		sys_id=$(get_system_id "$system_id")
+	sys_id=$(get_system_id "$system_id")
 
-		sqlite3 "$DB_FILE" "INSERT INTO detections (target_id, system_id, timestamp) VALUES ('$target_id', $sys_id, '$timestamp');"
+	sqlite3 "$DB_FILE" "INSERT INTO detections (target_id, system_id, timestamp) VALUES ('$target_id', $sys_id, '$timestamp');"
 
-		rm -f "$file"
-	done
+	rm -f "$file"
 }
 
-# Функция для обработки файлов стрельбы (shooting)
+# Функция обработки файла стрельбы
 process_shooting() {
-	for file in "$SHOOTING_DIR"/*; do
-		[[ -f "$file" ]] || continue
+	local decrypted_content="$1"
+	local file="$2"
 
-		decrypted_content=$(decrypt_and_verify_message "$file") || continue
+	timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
+	system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
+	target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
+	result=$(echo "$decrypted_content" | cut -d' ' -f5)
 
-		timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
-		system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
-		target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
-		result=$(echo "$decrypted_content" | cut -d' ' -f5)
+	echo "$timestamp $system_id $target_id $result"
 
-		echo "$timestamp $system_id $target_id $result"
+	echo "$timestamp $system_id Выстрел по цели ID:$target_id - $([[ "$result" == "1" ]] && echo "уничтожена" || echo "промах")!" >>"$KP_LOG"
 
-		echo "$timestamp $system_id Выстрел по цели ID:$target_id - $( [[ "$result" == "1" ]] && echo "уничтожена" || echo "промах" )!" >>"$KP_LOG"
+	target_exists=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM targets WHERE id='$target_id';")
 
-		target_exists=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM targets WHERE id='$target_id';")
+	if [[ "$target_exists" -eq 0 ]]; then
+		continue
+	fi
 
-		if [[ "$target_exists" -eq 0 ]]; then
-			continue
-		fi
+	sys_id=$(get_system_id "$system_id")
 
-		sys_id=$(get_system_id "$system_id")
+	sqlite3 "$DB_FILE" "INSERT INTO shooting (target_id, system_id, result, timestamp) VALUES ('$target_id', $sys_id, $result, '$timestamp');"
 
-		sqlite3 "$DB_FILE" "INSERT INTO shooting (target_id, system_id, result, timestamp) VALUES ('$target_id', $sys_id, $result, '$timestamp');"
-
-		rm -f "$file"
-	done
+	rm -f "$file"
 }
 
 initialize_database
@@ -159,7 +153,16 @@ mkdir -p "$DETECTIONS_DIR" "$SHOOTING_DIR"
 
 echo "Мониторинг файлов в $DETECTIONS_DIR и $SHOOTING_DIR"
 while true; do
-	process_detections
-	process_shooting
+	for file in "$DETECTIONS_DIR"/* "$SHOOTING_DIR"/*; do
+		[[ -f "$file" ]] || continue
+
+		decrypted_content=$(decrypt_and_verify_message "$file") || continue
+
+		if [[ "$file" == "$DETECTIONS_DIR/"* ]]; then
+			process_detection "$decrypted_content" "$file"
+		elif [[ "$file" == "$SHOOTING_DIR/"* ]]; then
+			process_shooting "$decrypted_content" "$file"
+		fi
+	done
 	sleep 0.5
 done
