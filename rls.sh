@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# ./rls.sh 1 9200000 4500000 2000000 135 120
+# ./rls.sh 1 3200000 3000000 3500000 180 120 3150000 3750000 1200000
 # Проверяем, переданы ли параметры
-if [[ $# -ne 6 ]]; then
-	echo "Использование: $0 <Номер_РЛС> <X_координата> <Y_координата> <Радиус действия> <Азимут> <Угол обзора>"
+if [[ $# -ne 9 ]]; then
+	echo "Использование: $0 <Номер_РЛС> <X_координата> <Y_координата> <Радиус действия> <Азимут> <Угол обзора> <СПРО_X_координата> <СПРО_Y_координата> <СПРО Радиус действия>"
 	exit 1
 fi
 
@@ -16,7 +16,7 @@ RLS_ANGLE=$6
 
 SPRO_X=$7
 SPRO_Y=$8
-SPRO_RADUIS=$9
+SPRO_RADIUS=$9
 
 # Каталоги
 TARGETS_DIR="/tmp/GenTargets/Targets"
@@ -104,11 +104,40 @@ beam() {
 	fi
 
 	# Проверка попадания в сектор
-	if (($(echo "$relative_angle >= -$angle / 2" | bc -l))) &&
-		(($(echo "$relative_angle <=  $angle / 2" | bc -l))); then
+	if (($(echo "$relative_angle >= -$angle / 2" | bc -l))) && (($(echo "$relative_angle <=  $angle / 2" | bc -l))); then
 		echo 1 # Истина (попадает в сектор)
 	else
 		echo 0 # Ложь (не попадает)
+	fi
+}
+
+check_trajectory_intersection() {
+	local x1=$1
+	local y1=$2
+	local x2=$3
+	local y2=$4
+	local sx=$SPRO_X          # Центр окружности
+	local sy=$SPRO_Y          # Центр окружности
+	local radius=$SPRO_RADIUS # Радиус окружности
+
+	local dx=$((x2 - x1))
+	local dy=$((y2 - y1))
+
+	# Вычисление расстояния от центра окружности до прямой
+	local numerator=$(echo "($dy * $sx) - ($dx * $sy) + ($x2 * $y1) - ($y2 * $x1)" | bc)
+	local numerator_abs=$(echo "sqrt($numerator^2)" | bc -l) # Берем модуль
+	local denominator=$(echo "sqrt($dx^2 + $dy^2)" | bc -l)
+	local distance_to_line=$(echo "scale=2; $numerator_abs / $denominator" | bc)
+
+	# Вычисляем расстояния до центра окружности на двух точках
+	local distance1=$(distance $x1 $y1 $sx $sy)
+	local distance2=$(distance $x2 $y2 $sx $sy)
+
+	# Проверяем пересечение и направление движения
+	if (($(echo "$distance_to_line <= $radius" | bc -l))) && (($(echo "$distance2 < $distance1" | bc -l))); then
+		echo 1
+	else
+		echo 0
 	fi
 }
 
@@ -194,11 +223,17 @@ while true; do
 
 						detection_time=$(date '+%d-%m %H:%M:%S.%3N')
 						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-						encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
 						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
-
-						if [[ $target_type == "ББ БР" ]]; then
-							echo "$detection_time РЛС$RLS_NUM ОСОБОЕ ВНИМАНИЕ ЦЕЛИ ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+						if [[ $target_type == "Крылатая ракета" || $target_type == "Самолет" ]]; then
+							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
+						elif [[ $target_type == "ББ БР" ]]; then
+							if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
+								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР-1" &
+								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
+							else
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР" &
+							fi
 						fi
 					fi
 				fi
@@ -211,12 +246,12 @@ while true; do
 		fi
 	done
 
-	for id in "${!TARGET_COORDS[@]}"; do
-		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
-			unset TARGET_COORDS["$id"]
-			unset TARGET_TYPE["$id"]
-		fi
-	done
+	# for id in "${!TARGET_COORDS[@]}"; do
+	# 	if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
+	# 		unset TARGET_COORDS["$id"]
+	# 		unset TARGET_TYPE["$id"]
+	# 	fi
+	# done
 
 	check_and_process_ping &
 	total_lines=$(wc -l <"$RLS_LOG")
