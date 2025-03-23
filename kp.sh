@@ -5,6 +5,7 @@ SCRIPT_DIR=$(dirname "$(realpath "$0")")
 MESSAGES_DIR="$SCRIPT_DIR/messages"
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
 SHOOTING_DIR="$MESSAGES_DIR/shooting"
+AMMO_DIR="$MESSAGES_DIR/ammo"
 
 # Определяем папку для логов
 KP_LOG="$SCRIPT_DIR/logs/kp_log.txt"
@@ -28,6 +29,14 @@ initialize_database() {
     CREATE TABLE IF NOT EXISTS systems (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE
+    );
+
+	CREATE TABLE IF NOT EXISTS ammo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        system_id INTEGER,
+		count INTEGER,
+        timestamp TEXT,
+		FOREIGN KEY (system_id) REFERENCES systems (id)
     );
 
     CREATE TABLE IF NOT EXISTS detections (
@@ -148,12 +157,32 @@ process_shooting() {
 	rm -f "$file"
 }
 
-initialize_database
-mkdir -p "$DETECTIONS_DIR" "$SHOOTING_DIR"
+# Функция обработки пополения боекомплекта
+process_ammo() {
+	local decrypted_content="$1"
+	local file="$2"
 
-echo "Мониторинг файлов в $DETECTIONS_DIR и $SHOOTING_DIR"
+	timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
+	system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
+	count=$(echo "$decrypted_content" | cut -d' ' -f4)
+
+	echo "$timestamp $system_id $count"
+
+	echo "$timestamp $system_id Боекомплект обновлен. Загружено $count снарядов!" >>"$KP_LOG"
+
+	sys_id=$(get_system_id "$system_id")
+
+	sqlite3 "$DB_FILE" "INSERT INTO ammo (system_id, count, timestamp) VALUES ($sys_id, $count, '$timestamp');"
+
+	rm -f "$file"
+}
+
+initialize_database
+mkdir -p "$DETECTIONS_DIR" "$SHOOTING_DIR" "$AMMO_DIR"
+
+echo "Мониторинг файлов в $DETECTIONS_DIR, $SHOOTING_DIR и $AMMO_DIR"
 while true; do
-	for file in "$DETECTIONS_DIR"/* "$SHOOTING_DIR"/*; do
+	for file in "$DETECTIONS_DIR"/* "$SHOOTING_DIR"/* "$AMMO_DIR/"*; do
 		[[ -f "$file" ]] || continue
 
 		decrypted_content=$(decrypt_and_verify_message "$file") || continue
@@ -162,6 +191,8 @@ while true; do
 			process_detection "$decrypted_content" "$file"
 		elif [[ "$file" == "$SHOOTING_DIR/"* ]]; then
 			process_shooting "$decrypted_content" "$file"
+		elif [[ "$file" == "$AMMO_DIR/"* ]]; then
+			process_ammo "$decrypted_content" "$file"
 		fi
 	done
 	sleep 0.5
