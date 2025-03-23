@@ -28,7 +28,7 @@ PROCESSED_FILES="$SCRIPT_DIR/temp/rls${RLS_NUM}_processed_files.txt"
 
 # Определяем папку для сообщений и логов
 MESSAGES_DIR="$SCRIPT_DIR/messages"
-RLS_LOG="$SCRIPT_DIR/logs/rls${RLS_NUM}_log.txt"
+RLS_LOG="$SCRIPT_DIR/logs/rls${RLS_NUM}_old_log.txt"
 >"$RLS_LOG" # Очистка файла при запуске
 
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
@@ -76,16 +76,70 @@ check_and_process_ping() {
 
 # Функция вычисления расстояния (используем bc)
 distance() {
-	./distance "$1" "$2" "$3" "$4"
+	local x1=$1 y1=$2 x2=$3 y2=$4
+	local dx=$((x2 - x1))
+	local dy=$((y2 - y1))
+	echo "scale=0; sqrt($dx * $dx + $dy * $dy)" | bc
 }
 
 # Функция вычисления попадания между лучами (используем bc)
 beam() {
-	./beam "$1" "$2" "$RLS_X" "$RLS_Y" "$RLS_ALPHA" "$RLS_ANGLE"
+	local x=$1 y=$2 alpha=$3 angle=$4
+	local dx=$((x - RLS_X))
+	local dy=$((y - RLS_Y))
+
+	# Вычисление угла направления на цель (арктангенс в градусах)
+	local angle_to_target=$(echo "a($dy / $dx) * 180 / 4*a(1)" | bc -l)
+	if ((dx < 0)); then
+		angle_to_target=$(echo "$angle_to_target + 180" | bc -l)
+	elif ((dy < 0)); then
+		angle_to_target=$(echo "$angle_to_target + 360" | bc -l)
+	fi
+
+	# Приведение угла в диапазон (-180°, 180°)
+	local relative_angle=$(echo "$angle_to_target - $alpha" | bc -l)
+	if (($(echo "$relative_angle > 180" | bc -l))); then
+		relative_angle=$(echo "$relative_angle - 360" | bc -l)
+	elif (($(echo "$relative_angle < -180" | bc -l))); then
+		relative_angle=$(echo "$relative_angle + 360" | bc -l)
+	fi
+
+	# Проверка попадания в сектор
+	if (($(echo "$relative_angle >= -$angle / 2" | bc -l))) && (($(echo "$relative_angle <=  $angle / 2" | bc -l))); then
+		echo 1 # Истина (попадает в сектор)
+	else
+		echo 0 # Ложь (не попадает)
+	fi
 }
 
 check_trajectory_intersection() {
-	./check_trajectory_intersection "$1" "$2" "$3" "$4" "$SPRO_X" "$SPRO_Y" "$SPRO_RADIUS"
+	local x1=$1
+	local y1=$2
+	local x2=$3
+	local y2=$4
+	local sx=$SPRO_X          # Центр окружности
+	local sy=$SPRO_Y          # Центр окружности
+	local radius=$SPRO_RADIUS # Радиус окружности
+
+	local dx=$((x2 - x1))
+	local dy=$((y2 - y1))
+
+	# Вычисление расстояния от центра окружности до прямой
+	local numerator=$(echo "($dy * $sx) - ($dx * $sy) + ($x2 * $y1) - ($y2 * $x1)" | bc)
+	local numerator_abs=$(echo "sqrt($numerator^2)" | bc -l) # Берем модуль
+	local denominator=$(echo "sqrt($dx^2 + $dy^2)" | bc -l)
+	local distance_to_line=$(echo "scale=2; $numerator_abs / $denominator" | bc)
+
+	# Вычисляем расстояния до центра окружности на двух точках
+	local distance1=$(distance $x1 $y1 $sx $sy)
+	local distance2=$(distance $x2 $y2 $sx $sy)
+
+	# Проверяем пересечение и направление движения
+	if (($(echo "$distance_to_line <= $radius" | bc -l))) && (($(echo "$distance2 < $distance1" | bc -l))); then
+		echo 1
+	else
+		echo 0
+	fi
 }
 
 # Функция для определения типа цели по скорости
@@ -156,31 +210,29 @@ while true; do
 			y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
 
 			dist_to_target=$(distance "$RLS_X" "$RLS_Y" "$x" "$y")
-			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))); then
-				target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
-				if [[ "$target_in_angle" -eq 1 ]]; then
-					if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
-						if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
-							prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
-							prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
+			target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
+			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))) && [[ "$target_in_angle" -eq 1 ]]; then
+				if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
+					if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
+						prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
+						prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
 
-							speed=$(distance "$prev_x" "$prev_y" "$x" "$y")
-							target_type=$(get_target_type "$speed")
-							TARGET_TYPE["$target_id"]="$target_type"
+						speed=$(distance "$prev_x" "$prev_y" "$x" "$y")
+						target_type=$(get_target_type "$speed")
+						TARGET_TYPE["$target_id"]="$target_type"
 
-							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
-							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
-							if [[ $target_type == "Крылатая ракета" || $target_type == "Самолет" ]]; then
-								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
-							elif [[ $target_type == "ББ БР" ]]; then
-								if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
-									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
-									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР-1" &
-									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
-								else
-									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР" &
-								fi
+						detection_time=$(date '+%d-%m %H:%M:%S.%3N')
+						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
+						if [[ $target_type == "Крылатая ракета" || $target_type == "Самолет" ]]; then
+							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
+						elif [[ $target_type == "ББ БР" ]]; then
+							if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
+								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР-1" &
+								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
+							else
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР" &
 							fi
 						fi
 					fi

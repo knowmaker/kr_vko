@@ -23,7 +23,7 @@ PROCESSED_FILES="$SCRIPT_DIR/temp/zrdn${ZRDN_NUM}_processed_files.txt"
 
 # Определяем папку для сообщений и логов
 MESSAGES_DIR="$SCRIPT_DIR/messages"
-ZRDN_LOG="$SCRIPT_DIR/logs/zrdn${ZRDN_NUM}_log.txt"
+ZRDN_LOG="$SCRIPT_DIR/logs/zrdn${ZRDN_NUM}_old_log.txt"
 >"$ZRDN_LOG" # Очистка файла при запуске
 
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
@@ -79,7 +79,10 @@ check_and_process_ping() {
 
 # Функция вычисления расстояния (используем bc)
 distance() {
-	./distance "$1" "$2" "$3" "$4"
+	local x1=$1 y1=$2 x2=$3 y2=$4
+	local dx=$((x2 - x1))
+	local dy=$((y2 - y1))
+	echo "scale=0; sqrt($dx * $dx + $dy * $dy)" | bc
 }
 
 # Функция для определения типа цели по скорости
