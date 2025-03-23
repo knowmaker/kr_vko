@@ -210,29 +210,31 @@ while true; do
 			y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
 
 			dist_to_target=$(distance "$RLS_X" "$RLS_Y" "$x" "$y")
-			target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
-			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))) && [[ "$target_in_angle" -eq 1 ]]; then
-				if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
-					if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
-						prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
-						prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
+			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))); then
+				target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
+				if [[ "$target_in_angle" -eq 1 ]]; then
+					if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
+						if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
+							prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
+							prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
 
-						speed=$(distance "$prev_x" "$prev_y" "$x" "$y")
-						target_type=$(get_target_type "$speed")
-						TARGET_TYPE["$target_id"]="$target_type"
+							speed=$(distance "$prev_x" "$prev_y" "$x" "$y")
+							target_type=$(get_target_type "$speed")
+							TARGET_TYPE["$target_id"]="$target_type"
 
-						detection_time=$(date '+%d-%m %H:%M:%S.%3N')
-						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-						echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
-						if [[ $target_type == "Крылатая ракета" || $target_type == "Самолет" ]]; then
-							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
-						elif [[ $target_type == "ББ БР" ]]; then
-							if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
-								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
-								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР-1" &
-								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
-							else
-								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР" &
+							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
+							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
+							if [[ $target_type == "Крылатая ракета" || $target_type == "Самолет" ]]; then
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
+							elif [[ $target_type == "ББ БР" ]]; then
+								if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
+									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
+									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР-1" &
+									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
+								else
+									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР" &
+								fi
 							fi
 						fi
 					fi
