@@ -28,9 +28,11 @@ SPRO_LOG="$SCRIPT_DIR/logs/spro_log.txt"
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
 SHOOTING_DIR="$MESSAGES_DIR/shooting"
 CHECK_DIR="$MESSAGES_DIR/check"
+AMMO_DIR="$MESSAGES_DIR/ammo"
 mkdir -p "$DETECTIONS_DIR"
 mkdir -p "$SHOOTING_DIR"
 mkdir -p "$CHECK_DIR"
+mkdir -p "$AMMO_DIR"
 
 # Боезапас и время пополнения
 MISSILES=10
@@ -113,6 +115,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 find "$MESSAGES_DIR" -type f -name "spro*" -exec rm -f {} \;
+encrypt_and_save_message "$AMMO_DIR/" "$(date '+%d-%m %H:%M:%S.%3N') СПРО 10" &
 while true; do
 	current_time=$(date +%s)
 
@@ -120,7 +123,10 @@ while true; do
 	if ((MISSILES == 0)) && ((current_time - LAST_RELOAD_TIME >= RELOAD_TIME)); then
 		MISSILES=10
 		LAST_RELOAD_TIME=$current_time
-		echo "$(date '+%d-%m %H:%M:%S.%3N') Боезапас пополнен!"
+		ammo_time=$(date '+%d-%m %H:%M:%S.%3N')
+		echo "$ammo_time СПРО Боезапас пополнен - 10 снарядов!"
+		encrypt_and_save_message "$AMMO_DIR/" "$ammo_time СПРО 10" &
+		echo "$ammo_time СПРО Боезапас пополнен - 10 снарядов!" >>"$SPRO_LOG"
 	fi
 
 	unset FIRST_TARGET_FILE
