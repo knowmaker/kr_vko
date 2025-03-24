@@ -1,6 +1,8 @@
 КОЛИЧЕСТВО ПОПАДАНИЙ И ПРОМАХОВ ПО КАЖДОЙ СТАНЦИИ (ЕСЛИ БЫЛ ХОТЯ БЫ ОДИН ВЫСТРЕЛ)
 
 sqlite3 vko.db <<EOF
+.headers on
+.mode table
 SELECT 
     s.name AS system_name,
     COUNT(sh.id) AS total_shots,
@@ -15,6 +17,8 @@ EOF
 ТОП СТАНЦИЙ ПО КОЛИЧЕСТВУ УНИЧТОЖЕНИЙ
 
 sqlite3 vko.db <<EOF
+.headers on
+.mode table
 SELECT 
     s.name AS system_name,
     COUNT(sh.id) AS total_hits
@@ -28,6 +32,8 @@ EOF
 ТОП СТАНЦИЙ ПО МЕТКОСТИ (ПРОЦЕНТУ УНИЧТОЖЕНИЙ СРЕДИ ВСЕХ ВЫСТРЕЛОВ)
 
 sqlite3 vko.db <<EOF
+.headers on
+.mode table
 SELECT 
     s.name AS system_name,
     COUNT(sh.id) AS total_shots,
@@ -42,6 +48,8 @@ EOF
 КОЛИЧЕСТВО БП У КАЖДОЙ СТАНЦИИ
 
 sqlite3 vko.db <<EOF
+.headers on
+.mode table
 WITH last_ammo AS (
     SELECT 
         a.system_id,
@@ -67,6 +75,8 @@ EOF
 КОЛИЧЕСТВО СБИТЫХ ЦЕЛЕЙ У КАЖДОЙ СТАНЦИИ ЗРДН ЗА ИНТЕРВАЛ ВРЕМЕНИ
 
 sqlite3 vko.db <<EOF
+.headers on
+.mode table
 SELECT 
     s.name AS system_name,
     COUNT(sh.id) AS total_hits
@@ -82,6 +92,8 @@ EOF
 КОЛИЧЕСТВО ЦЕЛЕЙ, НАПРАВЛЯЮЩИХСЯ В СТОРОНУ СПРО
 
 sqlite3 vko.db <<EOF
+.headers on
+.mode table
 SELECT COUNT(DISTINCT id) AS targets_moving_towards_PRO
 FROM targets
 WHERE direction = 1;
