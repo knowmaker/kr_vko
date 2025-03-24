@@ -16,15 +16,16 @@ def get_target_type(speed):
     else:
         return "Самолет", "green"  # Самолет (зеленый)
 
-# Читаем данные из базы
+# Читаем данные из базы с учетом названия системы
 def read_detections():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
     query = """
-    SELECT d.x, d.y, t.speed
+    SELECT d.x, d.y, t.speed, s.name
     FROM detections d
     JOIN targets t ON d.target_id = t.id
+    JOIN systems s ON d.system_id = s.id
     """
     
     cursor.execute(query)
@@ -76,10 +77,20 @@ def plot_detections():
         wedge = patches.Wedge((x, y), radius, start_angle, end_angle, color="blue", alpha=0.2)
         ax.add_patch(wedge)
 
-    # Отображаем точки обнаруженных целей
-    for x, y, speed in detections:
+    # Отображаем точки обнаруженных целей с учетом типа системы
+    for x, y, speed, system_name in detections:
         target_type, color = get_target_type(speed)
-        plt.scatter(x, y, c=color, label=target_type, edgecolors="black", alpha=0.7)
+
+        if "ЗРДН" in system_name:
+            marker = "s"  # Квадраты для ЗРДН
+        elif "СПРО" in system_name:
+            marker = "o"  # Кружки для СПРО
+        elif "РЛС" in system_name:
+            marker = "^"  # Треугольники для РЛС
+        else:
+            marker = "x"  # По умолчанию — крестики
+
+        plt.scatter(x, y, c=color, marker=marker, label=target_type, edgecolors="black", alpha=0.7)
 
     # Настройки графика
     plt.xlim(0, 13000000)
