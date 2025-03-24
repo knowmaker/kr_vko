@@ -65,13 +65,13 @@ def plot_detections():
         ax.add_patch(circle)
 
     # Секторы (x, y, radius, угол между осью X и биссектрисой, угол обзора)
-    sectors = [
+    rls = [
         (6150000, 3700000, 4000000, 270, 200),
         (3200000, 3000000, 3500000, 180, 120),
         (12000000, 5000000, 6000000, 135, 90)
     ]
 
-    for x, y, radius, direction, angle in sectors:
+    for x, y, radius, direction, angle in rls:
         start_angle = direction - angle / 2  # Начальный угол сектора
         end_angle = direction + angle / 2  # Конечный угол сектора
         wedge = patches.Wedge((x, y), radius, start_angle, end_angle, color="blue", alpha=0.2)
