@@ -221,7 +221,7 @@ while true; do
 								echo "$(date '+%d-%m %H:%M:%S.%3N') ЗРДН$ZRDN_NUM Боезапас исчерпан! Начинается перезарядка"
 							fi
 						else
-							echo "$(date '+%d-%m %H:%M:%S.%3N') ЗРДН$ZRDN_NUM Невозможно атаковать ID:$target_id - Боезапас исчерпан!"
+							echo "$(date '+%d-%m %H:%M:%S.%3N') ЗРДН$ZRDN_NUM Невозможно атаковать цель ID:$target_id - Боезапас исчерпан!"
 						fi
 					fi
 				fi
