@@ -115,7 +115,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 find "$MESSAGES_DIR" -type f -name "spro*" -exec rm -f {} \;
-encrypt_and_save_message "$AMMO_DIR/" "$(date '+%d-%m %H:%M:%S.%3N') СПРО 10" &
+encrypt_and_save_message "$AMMO_DIR/" "$(date '+%d-%m %H:%M:%S.%3N') СПРО $MISSILES" &
 while true; do
 	current_time=$(date +%s)
 
@@ -124,9 +124,9 @@ while true; do
 		MISSILES=10
 		LAST_RELOAD_TIME=$current_time
 		ammo_time=$(date '+%d-%m %H:%M:%S.%3N')
-		echo "$ammo_time СПРО Боезапас пополнен - 10 снарядов!"
-		encrypt_and_save_message "$AMMO_DIR/" "$ammo_time СПРО 10" &
-		echo "$ammo_time СПРО Боезапас пополнен - 10 снарядов!" >>"$SPRO_LOG"
+		echo "$ammo_time СПРО Боезапас пополнен - $MISSILES снарядов!"
+		encrypt_and_save_message "$AMMO_DIR/" "$ammo_time СПРО $MISSILES" &
+		echo "$ammo_time СПРО Боезапас пополнен - $MISSILES снарядов!" >>"$SPRO_LOG"
 	fi
 
 	unset FIRST_TARGET_FILE

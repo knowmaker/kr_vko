@@ -1,11 +1,13 @@
 #!/bin/bash
 
-DB_FILE="vko.db"
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
+DB_DIR="$SCRIPT_DIR/db"
+DB_FILE="$DB_DIR/vko.db"
 MESSAGES_DIR="$SCRIPT_DIR/messages"
 DETECTIONS_DIR="$MESSAGES_DIR/detections"
 SHOOTING_DIR="$MESSAGES_DIR/shooting"
 AMMO_DIR="$MESSAGES_DIR/ammo"
+CHECK_DIR="$MESSAGES_DIR/check"
 
 # Определяем папку для логов
 KP_LOG="$SCRIPT_DIR/logs/kp_log.txt"
@@ -177,8 +179,61 @@ process_ammo() {
 	rm -f "$file"
 }
 
+declare -A systems_map=(
+	["zrdn1"]="ЗРДН1"
+	["zrdn2"]="ЗРДН2"
+	["zrdn3"]="ЗРДН3"
+	["spro"]="СПРО"
+	["rls1"]="РЛС1"
+	["rls2"]="РЛС2"
+	["rls3"]="РЛС3"
+)
+
+declare -A system_status
+
+for key in "${!systems_map[@]}"; do
+	system_status["$key"]=1 # 1 - работает
+done
+
+check_systems() {
+	while true; do
+		for key in "${!systems_map[@]}"; do
+			if [[ ! -f "$CHECK_DIR/ping_$key" ]]; then
+				touch "$CHECK_DIR/ping_$key"
+			fi
+		done
+
+		sleep 30
+
+		for key in "${!systems_map[@]}"; do
+			if [[ -f "$CHECK_DIR/ping_$key" ]]; then
+				# Если система впервые перестала работать, выводим сообщение
+				if [[ ${system_status[$key]} -eq 1 ]]; then
+					check_time=$(date '+%d-%m %H:%M:%S.%3N')
+					echo "$check_time ${systems_map[$key]} работоспособность потеряна!"
+					echo "$check_time ${systems_map[$key]} работоспособность потеряна!" >>"$KP_LOG"
+					system_status["$key"]=0 # Отмечаем как неработающую
+				fi
+			else
+				# Если система была неработающей, но теперь отвечает, выводим сообщение о восстановлении
+				if [[ ${system_status[$key]} -eq 0 ]]; then
+					check_time=$(date '+%d-%m %H:%M:%S.%3N')
+					echo "$check_time ${systems_map[$key]} работоспособность восстановлена!"
+					echo "$check_time ${systems_map[$key]} работоспособность восстановлена!" >>"$KP_LOG"
+					system_status["$key"]=1 # Отмечаем как работающую
+				fi
+			fi
+			rm -f "$CHECK_DIR/pong_$key"
+		done
+
+		sleep 30
+	done
+}
+
 initialize_database
-mkdir -p "$DETECTIONS_DIR" "$SHOOTING_DIR" "$AMMO_DIR"
+mkdir -p "$DETECTIONS_DIR" "$SHOOTING_DIR" "$AMMO_DIR" "$CHECK_DIR"
+
+check_systems &
 
 echo "Мониторинг файлов в $DETECTIONS_DIR, $SHOOTING_DIR и $AMMO_DIR"
 while true; do
