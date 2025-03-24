@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# Проверка на запуск от root
+if [[ $EUID -eq 0 ]]; then
+    echo "Ошибка: Запуск от root запрещен!"
+    exit 1
+fi
+
+# Проверка ОС
+if [[ "$(uname)" != "Linux" ]]; then
+    echo "Ошибка: Скрипт поддерживается только в Linux!"
+    exit 1
+fi
+
+# Проверка оболочки
+if [[ -z "$BASH_VERSION" ]]; then
+    echo "Ошибка: Скрипт должен выполняться в Bash!"
+    exit 1
+fi
+
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 DB_DIR="$SCRIPT_DIR/db"
 DB_FILE="$DB_DIR/vko.db"

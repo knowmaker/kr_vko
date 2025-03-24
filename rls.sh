@@ -7,6 +7,24 @@ if [[ $# -ne 9 ]]; then
 	exit 1
 fi
 
+# Проверка на запуск от root
+if [[ $EUID -eq 0 ]]; then
+    echo "Ошибка: Запуск от root запрещен!"
+    exit 1
+fi
+
+# Проверка ОС
+if [[ "$(uname)" != "Linux" ]]; then
+    echo "Ошибка: Скрипт поддерживается только в Linux!"
+    exit 1
+fi
+
+# Проверка оболочки
+if [[ -z "$BASH_VERSION" ]]; then
+    echo "Ошибка: Скрипт должен выполняться в Bash!"
+    exit 1
+fi
+
 RLS_NUM=$1
 RLS_X=$2
 RLS_Y=$3
