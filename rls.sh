@@ -188,16 +188,16 @@ while true; do
 
 							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
 							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
+							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
 							if [[ $target_type == "Крылатая ракета" || $target_type == "Самолет" ]]; then
-								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ${TARGET_TYPE[$target_id]}" &
 							elif [[ $target_type == "ББ БР" ]]; then
 								if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
 									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
-									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР-1" &
+									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ББ БР-1" &
 									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
 								else
-									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id $speed ББ БР" &
+									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ББ БР" &
 								fi
 							fi
 						fi

@@ -202,8 +202,8 @@ while true; do
 						if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" ]]; then
 							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
 							echo "$detection_time СПРО Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time СПРО $target_id $speed ${TARGET_TYPE[$target_id]}" &
-							echo "$detection_time СПРО Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$SPRO_LOG"
+							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time СПРО $target_id X:$x Y:$y $speed ${TARGET_TYPE[$target_id]}" &
+							echo "$detection_time СПРО Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$SPRO_LOG"
 						fi
 					fi
 

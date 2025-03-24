@@ -63,6 +63,8 @@ initialize_database() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         target_id TEXT,
         system_id INTEGER,
+		x INTEGER,
+		y INTEGER,
         timestamp TEXT,
         FOREIGN KEY (target_id) REFERENCES targets (id),
         FOREIGN KEY (system_id) REFERENCES systems (id)
@@ -126,26 +128,28 @@ process_detection() {
 	timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
 	system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
 	target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
-	speed=$(echo "$decrypted_content" | cut -d' ' -f5)
-	target_type=$(echo "$decrypted_content" | cut -d' ' -f6-)
+	x=$(echo "$decrypted_content" | cut -d' ' -f5 | cut -d':' -f2)
+	y=$(echo "$decrypted_content" | cut -d' ' -f6 | cut -d':' -f2)
+	speed=$(echo "$decrypted_content" | cut -d' ' -f7)
+	target_type=$(echo "$decrypted_content" | cut -d' ' -f8-)
 
-	echo "$timestamp $system_id $target_id $speed $target_type"
+	echo "$timestamp $system_id $target_id $x $y $speed $target_type"
 
 	if [[ "$target_type" == "ББ БР-1" ]]; then
 		direction=1
 		target_type="ББ БР"
-		echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
+		echo "$timestamp $system_id Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с $target_type" >>"$KP_LOG"
 		echo "$timestamp $system_id Цель ID:$target_id движется в сторону СПРО" >>"$KP_LOG"
 	else
 		direction="NULL"
-		echo "$timestamp $system_id Обнаружена цель ID:$target_id скорость: $speed м/с $target_type" >>"$KP_LOG"
+		echo "$timestamp $system_id Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с $target_type" >>"$KP_LOG"
 	fi
 
 	sqlite3 "$DB_FILE" "INSERT OR IGNORE INTO targets (id, speed, ttype, direction) VALUES ('$target_id', $speed, '$target_type', $direction);"
 
 	sys_id=$(get_system_id "$system_id")
 
-	sqlite3 "$DB_FILE" "INSERT INTO detections (target_id, system_id, timestamp) VALUES ('$target_id', $sys_id, '$timestamp');"
+	sqlite3 "$DB_FILE" "INSERT INTO detections (target_id, system_id, x, y, timestamp) VALUES ('$target_id', $sys_id, $x, $y, '$timestamp');"
 
 	rm -f "$file"
 }

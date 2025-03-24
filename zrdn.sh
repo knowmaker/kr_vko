@@ -203,8 +203,8 @@ while true; do
 						if [[ "${TARGET_TYPE[$target_id]}" == "Крылатая ракета" || "${TARGET_TYPE[$target_id]}" == "Самолет" ]]; then
 							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
 							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time ЗРДН$ZRDN_NUM $target_id $speed ${TARGET_TYPE[$target_id]}" &
-							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$ZRDN_LOG"
+							encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time ЗРДН$ZRDN_NUM $target_id X:$x Y:$y $speed ${TARGET_TYPE[$target_id]}" &
+							echo "$detection_time ЗРДН$ZRDN_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$ZRDN_LOG"
 						fi
 					fi
 
