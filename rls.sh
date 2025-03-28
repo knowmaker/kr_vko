@@ -200,8 +200,8 @@ while true; do
 							fi
 						fi
 					fi
+					TARGET_COORDS["$target_id"]="$x,$y"
 				fi
-				TARGET_COORDS["$target_id"]="$x,$y"
 			fi
 		done
 
