@@ -2,20 +2,20 @@
 
 # Проверка на запуск от root
 if [[ $EUID -eq 0 ]]; then
-    echo "Ошибка: Запуск от root запрещен!"
-    exit 1
+	echo "Ошибка: Запуск от root запрещен!"
+	exit 1
 fi
 
 # Проверка ОС
 if [[ "$(uname)" != "Linux" ]]; then
-    echo "Ошибка: Скрипт поддерживается только в Linux!"
-    exit 1
+	echo "Ошибка: Скрипт поддерживается только в Linux!"
+	exit 1
 fi
 
 # Проверка оболочки
 if [[ -z "$BASH_VERSION" ]]; then
-    echo "Ошибка: Скрипт должен выполняться в Bash!"
-    exit 1
+	echo "Ошибка: Скрипт должен выполняться в Bash!"
+	exit 1
 fi
 
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
@@ -74,8 +74,9 @@ initialize_database() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         target_id TEXT,
         system_id INTEGER,
-        result BOOLEAN,
         timestamp TEXT,
+		result BOOLEAN,
+		result_timestamp TEXT,
         FOREIGN KEY (target_id) REFERENCES targets (id),
         FOREIGN KEY (system_id) REFERENCES systems (id)
     );
@@ -101,6 +102,7 @@ decrypt_and_verify_message() {
 		echo "$decrypted_content"
 	else
 		echo "ВНИМАНИЕ!ВНИМАНИЕ!ВНИМАНИЕ! ДАННЫЕ ПОВРЕЖДЕНЫ! ВОЗМОЖЕН НСД!" >&2
+		echo "$(date '+%d-%m %H:%M:%S.%3N') Возможен несанкционированный доступ" >>"$KP_LOG"
 		return 1
 	fi
 }
@@ -162,21 +164,25 @@ process_shooting() {
 	timestamp=$(echo "$decrypted_content" | cut -d' ' -f1,2)
 	system_id=$(echo "$decrypted_content" | cut -d' ' -f3)
 	target_id=$(echo "$decrypted_content" | cut -d' ' -f4)
-	result=$(echo "$decrypted_content" | cut -d' ' -f5)
+	result_data=$(echo "$decrypted_content" | cut -d' ' -f5-)
 
-	echo "$timestamp $system_id $target_id $result"
-
-	echo "$timestamp $system_id Выстрел по цели ID:$target_id - $([[ "$result" == "1" ]] && echo "уничтожена" || echo "промах")!" >>"$KP_LOG"
-
-	target_exists=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM targets WHERE id='$target_id';")
-
-	if [[ "$target_exists" -eq 0 ]]; then
-		continue
-	fi
+	echo "$timestamp $system_id $target_id $result_data"
 
 	sys_id=$(get_system_id "$system_id")
 
-	sqlite3 "$DB_FILE" "INSERT INTO shooting (target_id, system_id, result, timestamp) VALUES ('$target_id', $sys_id, $result, '$timestamp');"
+	if [[ -z "$result_data" ]]; then
+		sqlite3 "$DB_FILE" "INSERT INTO shooting (target_id, system_id, timestamp) VALUES ('$target_id', $sys_id, '$timestamp');"
+		echo "$timestamp $system_id Выстрел по цели ID:$target_id" >>"$KP_LOG"
+	else
+		result_timestamp=$(echo "$result_data" | cut -d' ' -f1,2)
+		result=$(echo "$result_data" | cut -d' ' -f3)
+
+		# Находим последнюю запись с совпадающими system_id, target_id и timestamp
+		last_id=$(sqlite3 "$DB_FILE" "SELECT id FROM shooting WHERE target_id = '$target_id' AND system_id = $sys_id AND timestamp = '$timestamp' ORDER BY id DESC LIMIT 1;")
+
+		sqlite3 "$DB_FILE" "UPDATE shooting SET result = $result, result_timestamp = '$result_timestamp' WHERE id = $last_id;"
+		echo "$result_timestamp $system_id $([[ "$result" == "1" ]] && echo "Уничтожена цель" || echo "Промах по цели") ID:$target_id при выстреле в $timestamp" >>"$KP_LOG"
+	fi
 
 	rm -f "$file"
 }
@@ -192,7 +198,7 @@ process_ammo() {
 
 	echo "$timestamp $system_id $count"
 
-	echo "$timestamp $system_id Боекомплект обновлен. Загружено $count снарядов!" >>"$KP_LOG"
+	echo "$timestamp $system_id Боекомплект обновлен. Загружено $count снарядов" >>"$KP_LOG"
 
 	sys_id=$(get_system_id "$system_id")
 
@@ -259,9 +265,9 @@ check_systems &
 
 echo "Мониторинг файлов в $DETECTIONS_DIR, $SHOOTING_DIR и $AMMO_DIR"
 while true; do
-	for file in "$DETECTIONS_DIR"/* "$SHOOTING_DIR"/* "$AMMO_DIR/"*; do
-		[[ -f "$file" ]] || continue
+	mapfile -t files < <(find "$DETECTIONS_DIR" "$SHOOTING_DIR" "$AMMO_DIR" -type f -printf "%T@ %p\n" 2>/dev/null | sort -n | cut -d' ' -f2-)
 
+	for file in "${files[@]}"; do
 		decrypted_content=$(decrypt_and_verify_message "$file") || continue
 
 		if [[ "$file" == "$DETECTIONS_DIR/"* ]]; then
@@ -272,5 +278,5 @@ while true; do
 			process_ammo "$decrypted_content" "$file"
 		fi
 	done
-	sleep 0.3
+	sleep 0.01
 done

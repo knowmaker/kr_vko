@@ -142,9 +142,9 @@ while true; do
 		MISSILES=10
 		LAST_RELOAD_TIME=$current_time
 		ammo_time=$(date '+%d-%m %H:%M:%S.%3N')
-		echo "$ammo_time СПРО Боезапас пополнен - $MISSILES снарядов!"
+		echo "$ammo_time СПРО Боезапас пополнен - $MISSILES снарядов"
 		encrypt_and_save_message "$AMMO_DIR/" "$ammo_time СПРО $MISSILES" &
-		echo "$ammo_time СПРО Боезапас пополнен - $MISSILES снарядов!" >>"$SPRO_LOG"
+		echo "$ammo_time СПРО Боезапас пополнен - $MISSILES снарядов" >>"$SPRO_LOG"
 	fi
 
 	unset FIRST_TARGET_FILE
@@ -179,9 +179,10 @@ while true; do
 			echo "$filename" >>"$PROCESSED_FILES"
 
 			if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" && -n "${TARGET_SHOT_TIME[$target_id]}" ]]; then
-				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$target_id промах СПРО при выстреле ${TARGET_SHOT_TIME[$target_id]}"
-				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$target_id]} СПРО $target_id 0" &
-				echo "${TARGET_SHOT_TIME[$target_id]} СПРО Выстрел по цели ID:$target_id - промах!" >>"$SPRO_LOG"
+				miss_time=$(date '+%d-%m %H:%M:%S.%3N')
+				echo "$miss_time СПРО Промах по цели ID:$target_id при выстреле в ${TARGET_SHOT_TIME[$target_id]}"
+				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$target_id]} СПРО $target_id $miss_time 0" &
+				echo "$miss_time СПРО Промах по цели ID:$target_id при выстреле в ${TARGET_SHOT_TIME[$target_id]}" >>"$SPRO_LOG"
 				unset TARGET_SHOT_TIME["$target_id"]
 			fi
 
@@ -210,7 +211,9 @@ while true; do
 					if [[ "${TARGET_TYPE[$target_id]}" == "ББ БР" ]]; then
 						if ((MISSILES > 0)); then
 							shot_time=$(date '+%d-%m %H:%M:%S.%3N')
-							echo "$shot_time СПРО Атака цели ID:$target_id - Выстрел!"
+							echo "$shot_time СПРО Выстрел по цели ID:$target_id"
+							encrypt_and_save_message "$SHOOTING_DIR/" "$shot_time СПРО $target_id" &
+							echo "$shot_time СПРО Выстрел по цели ID:$target_id" >>"$SPRO_LOG"
 							echo "СПРО" >"$DESTROY_DIR/$target_id"
 							((MISSILES--))
 							TARGET_SHOT_TIME["$target_id"]="$shot_time"
@@ -220,7 +223,7 @@ while true; do
 								echo "$(date '+%d-%m %H:%M:%S.%3N') СПРО Боезапас исчерпан! Начинается перезарядка"
 							fi
 						else
-							echo "$(date '+%d-%m %H:%M:%S.%3N') СПРО Невозможно атаковать цель ID:$target_id - Боезапас исчерпан!"
+							echo "$(date '+%d-%m %H:%M:%S.%3N') СПРО Невозможно атаковать цель ID:$target_id - Боезапас исчерпан"
 						fi
 					fi
 				fi
@@ -236,9 +239,10 @@ while true; do
 	for id in "${!TARGET_COORDS[@]}"; do
 		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
 			if [[ "${TARGET_TYPE[$id]}" == "ББ БР" && -n "${TARGET_SHOT_TIME[$id]}" ]]; then
-                echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена СПРО при выстреле ${TARGET_SHOT_TIME[$id]}"
-                encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} СПРО $id 1" &
-                echo "${TARGET_SHOT_TIME[$id]} СПРО Выстрел по цели ID:$id - уничтожена!" >>"$SPRO_LOG"
+				destruction_time=$(date '+%d-%m %H:%M:%S.%3N')
+				echo "$destruction_time СПРО Уничтожена цель ID:$id при выстреле в ${TARGET_SHOT_TIME[$id]}"
+				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} СПРО $id $destruction_time 1" &
+				echo "$destruction_time СПРО Уничтожена цель ID:$id при выстреле в ${TARGET_SHOT_TIME[$id]}" >>"$SPRO_LOG"
 				unset TARGET_SHOT_TIME["$id"]
 			fi
 		fi
