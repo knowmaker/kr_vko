@@ -172,7 +172,8 @@ process_shooting() {
 
 	if [[ -z "$result_data" ]]; then
 		sqlite3 "$DB_FILE" "INSERT INTO shooting (target_id, system_id, timestamp) VALUES ('$target_id', $sys_id, '$timestamp');"
-		echo "$timestamp $system_id Выстрел по цели ID:$target_id" >>"$KP_LOG"
+		(( ammo_count[$system_id]-- ))
+		echo "$timestamp $system_id Выстрел по цели ID:$target_id. Осталось снарядов: ${ammo_count[$system_id]}" >>"$KP_LOG"
 	else
 		result_timestamp=$(echo "$result_data" | cut -d' ' -f1,2)
 		result=$(echo "$result_data" | cut -d' ' -f3)
@@ -187,6 +188,8 @@ process_shooting() {
 	rm -f "$file"
 }
 
+declare -A ammo_count
+
 # Функция обработки пополения боекомплекта
 process_ammo() {
 	local decrypted_content="$1"
@@ -199,6 +202,7 @@ process_ammo() {
 	echo "$timestamp $system_id $count"
 
 	echo "$timestamp $system_id Боекомплект обновлен. Загружено $count снарядов" >>"$KP_LOG"
+	ammo_count[$system_id]=$count
 
 	sys_id=$(get_system_id "$system_id")
 
