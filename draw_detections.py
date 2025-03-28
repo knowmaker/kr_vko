@@ -7,22 +7,13 @@ import os
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 DB_FILE = os.path.join(SCRIPT_DIR, "db", "vko.db")
 
-# Функция определения типа цели по скорости
-def get_target_type(speed):
-    if speed >= 8000:
-        return "ББ БР", "red"  # Баллистическая ракета (красный)
-    elif speed >= 250:
-        return "Крылатая ракета", "blue"  # Крылатая ракета (синий)
-    else:
-        return "Самолет", "green"  # Самолет (зеленый)
-
-# Читаем данные из базы с учетом названия системы
+# Читаем данные из базы с учетом названия системы и типа цели
 def read_detections():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
     query = """
-    SELECT d.x, d.y, t.speed, s.name
+    SELECT d.x, d.y, t.ttype, s.name
     FROM detections d
     JOIN targets t ON d.target_id = t.id
     JOIN systems s ON d.system_id = s.id
@@ -77,9 +68,16 @@ def plot_detections():
         wedge = patches.Wedge((x, y), radius, start_angle, end_angle, color="blue", alpha=0.2)
         ax.add_patch(wedge)
 
+    # Цвета для типов целей
+    target_colors = {
+        "ББ БР": "red",
+        "Крылатая ракета": "blue",
+        "Самолет": "green"
+    }
+
     # Отображаем точки обнаруженных целей с учетом типа системы
-    for x, y, speed, system_name in detections:
-        target_type, color = get_target_type(speed)
+    for x, y, ttype, system_name in detections:
+        color = target_colors.get(ttype, "black")  # Черный цвет по умолчанию для неизвестных целей
 
         if "ЗРДН" in system_name:
             marker = "s"  # Квадраты для ЗРДН
@@ -90,7 +88,7 @@ def plot_detections():
         else:
             marker = "x"  # По умолчанию — крестики
 
-        plt.scatter(x, y, c=color, marker=marker, label=target_type, edgecolors="black", alpha=0.7)
+        plt.scatter(x, y, c=color, marker=marker, label=ttype, edgecolors="black", alpha=0.7)
 
     # Настройки графика
     plt.xlim(0, 13000000)
