@@ -272,5 +272,5 @@ while true; do
 			process_ammo "$decrypted_content" "$file"
 		fi
 	done
-	sleep 0.5
+	sleep 0.3
 done

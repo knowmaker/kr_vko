@@ -199,4 +199,5 @@ while true; do
 		tail -n 100 "$RLS_LOG" >"$temp_file"
 		mv "$temp_file" "$RLS_LOG"
 	fi
+	sleep 0.01
 done

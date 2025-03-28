@@ -240,10 +240,8 @@ while true; do
 				echo "$(date '+%d-%m %H:%M:%S.%3N') Цель ID:$id уничтожена ЗРДН$ZRDN_NUM при выстреле ${TARGET_SHOT_TIME[$id]}"
 				encrypt_and_save_message "$SHOOTING_DIR/" "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM $id 1" &
 				echo "${TARGET_SHOT_TIME[$id]} ЗРДН$ZRDN_NUM Выстрел по цели ID:$id - уничтожена!" >>"$ZRDN_LOG"
+				unset TARGET_SHOT_TIME["$id"]
 			fi
-			unset TARGET_COORDS["$id"]
-			unset TARGET_TYPE["$id"]
-			unset TARGET_SHOT_TIME["$id"]
 		fi
 	done
 
