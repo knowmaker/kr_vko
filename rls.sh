@@ -170,15 +170,15 @@ while true; do
 			FIRST_TARGET_FILE["$target_id"]="$target_file"
 			echo "$filename" >>"$PROCESSED_FILES"
 
-			x=$(grep -oP 'X:\s*\K\d+' "$target_file")
-			y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
+			if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
+				x=$(grep -oP 'X:\s*\K\d+' "$target_file")
+				y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
 
-			dist_to_target=$(distance "$RLS_X" "$RLS_Y" "$x" "$y")
-			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))); then
-				target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
-				if [[ "$target_in_angle" -eq 1 ]]; then
-					if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
-						if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
+				dist_to_target=$(distance "$RLS_X" "$RLS_Y" "$x" "$y")
+				if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))); then
+					target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
+					if [[ "$target_in_angle" -eq 1 ]]; then
+						if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
 							prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
 							prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
 
@@ -199,8 +199,8 @@ while true; do
 								fi
 							fi
 						fi
+						TARGET_COORDS["$target_id"]="$x,$y"
 					fi
-					TARGET_COORDS["$target_id"]="$x,$y"
 				fi
 			fi
 		done
