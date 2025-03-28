@@ -139,81 +139,56 @@ trap cleanup SIGINT SIGTERM
 
 find "$MESSAGES_DIR" -type f -name "rls${RLS_NUM}*" -exec rm -f {} \;
 while true; do
-	unset FIRST_TARGET_FILE
-	declare -A FIRST_TARGET_FILE
-	found_second_file=false
+	# Получаем последние MAX_FILES файлов, отсортированные по времени
+	mapfile -t latest_files < <(find "$TARGETS_DIR" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n "$MAX_FILES" | cut -d' ' -f2-)
 
-	while ! $found_second_file; do
-		# Получаем последние MAX_FILES файлов, отсортированные по времени
-		mapfile -t latest_files < <(find "$TARGETS_DIR" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n "$MAX_FILES" | cut -d' ' -f2-)
+	for target_file in "${latest_files[@]}"; do
+		filename=$(basename "$target_file")
 
-		for target_file in "${latest_files[@]}"; do
-			filename=$(basename "$target_file")
+		if grep -qFx "$filename" "$PROCESSED_FILES"; then
+			continue
+		fi
 
-			if grep -qFx "$filename" "$PROCESSED_FILES"; then
-				continue
-			fi
-
-			if [[ ${#filename} -le 2 ]]; then
-				echo "$filename" >>"$PROCESSED_FILES"
-				continue
-			fi
-
-			target_id=$(decode_target_id "$filename")
-
-			# Если для этой цели уже был найден файл — завершаем поиск
-			if [[ -n "${FIRST_TARGET_FILE[$target_id]}" ]]; then
-				found_second_file=true
-				break
-			fi
-
-			FIRST_TARGET_FILE["$target_id"]="$target_file"
+		if [[ ${#filename} -le 2 ]]; then
 			echo "$filename" >>"$PROCESSED_FILES"
+			continue
+		fi
 
-			if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
-				x=$(grep -oP 'X:\s*\K\d+' "$target_file")
-				y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
+		target_id=$(decode_target_id "$filename")
+		echo "$filename" >>"$PROCESSED_FILES"
 
-				dist_to_target=$(distance "$RLS_X" "$RLS_Y" "$x" "$y")
-				if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))); then
-					target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
-					if [[ "$target_in_angle" -eq 1 ]]; then
-						if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
-							prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
-							prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
+		if [[ -z "${TARGET_TYPE[$target_id]}" ]]; then
+			x=$(grep -oP 'X:\s*\K\d+' "$target_file")
+			y=$(grep -oP 'Y:\s*\K\d+' "$target_file")
 
-							speed=$(distance "$prev_x" "$prev_y" "$x" "$y")
-							target_type=$(get_target_type "$speed")
-							TARGET_TYPE["$target_id"]="$target_type"
+			dist_to_target=$(distance "$RLS_X" "$RLS_Y" "$x" "$y")
+			if (($(echo "$dist_to_target <= $RLS_RADIUS" | bc -l))); then
+				target_in_angle=$(beam "$x" "$y" "$RLS_ALPHA" "$RLS_ANGLE")
+				if [[ "$target_in_angle" -eq 1 ]]; then
+					if [[ -n "${TARGET_COORDS[$target_id]}" ]]; then
+						prev_x=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f1)
+						prev_y=$(echo "${TARGET_COORDS[$target_id]}" | cut -d',' -f2)
 
-							if [[ $target_type == "ББ БР" ]]; then
-								detection_time=$(date '+%d-%m %H:%M:%S.%3N')
-								echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-								echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
-								if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
-									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
-									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ББ БР-1" &
-									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
-								else
-									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ББ БР" &
-								fi
+						speed=$(distance "$prev_x" "$prev_y" "$x" "$y")
+						target_type=$(get_target_type "$speed")
+						TARGET_TYPE["$target_id"]="$target_type"
+
+						if [[ $target_type == "ББ БР" ]]; then
+							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
+							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
+							if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
+								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ББ БР-1" &
+								echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО" >>"$RLS_LOG"
+							else
+								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ББ БР" &
 							fi
 						fi
-						TARGET_COORDS["$target_id"]="$x,$y"
 					fi
+					TARGET_COORDS["$target_id"]="$x,$y"
 				fi
 			fi
-		done
-
-		if ! $found_second_file; then
-			sleep 0.01
-		fi
-	done
-
-	for id in "${!TARGET_COORDS[@]}"; do
-		if [[ -z "${FIRST_TARGET_FILE[$id]}" ]]; then
-			unset TARGET_COORDS["$id"]
-			unset TARGET_TYPE["$id"]
 		fi
 	done
 
