@@ -94,16 +94,16 @@ check_and_process_ping() {
 
 # Функция вычисления расстояния (используем bc)
 distance() {
-	./distance "$1" "$2" "$3" "$4"
+	./math_modules/distance "$1" "$2" "$3" "$4"
 }
 
 # Функция вычисления попадания между лучами (используем bc)
 beam() {
-	./beam "$1" "$2" "$RLS_X" "$RLS_Y" "$RLS_ALPHA" "$RLS_ANGLE"
+	./math_modules/beam "$1" "$2" "$RLS_X" "$RLS_Y" "$RLS_ALPHA" "$RLS_ANGLE"
 }
 
 check_trajectory_intersection() {
-	./check_trajectory_intersection "$1" "$2" "$3" "$4" "$SPRO_X" "$SPRO_Y" "$SPRO_RADIUS"
+	./math_modules/check_trajectory_intersection "$1" "$2" "$3" "$4" "$SPRO_X" "$SPRO_Y" "$SPRO_RADIUS"
 }
 
 # Функция для определения типа цели по скорости
@@ -186,12 +186,10 @@ while true; do
 							target_type=$(get_target_type "$speed")
 							TARGET_TYPE["$target_id"]="$target_type"
 
-							detection_time=$(date '+%d-%m %H:%M:%S.%3N')
-							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
-							echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
-							if [[ $target_type == "Крылатая ракета" || $target_type == "Самолет" ]]; then
-								encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ${TARGET_TYPE[$target_id]}" &
-							elif [[ $target_type == "ББ БР" ]]; then
+							if [[ $target_type == "ББ БР" ]]; then
+								detection_time=$(date '+%d-%m %H:%M:%S.%3N')
+								echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ($target_type)"
+								echo "$detection_time РЛС$RLS_NUM Обнаружена цель ID:$target_id с координатами X:$x Y:$y, скорость: $speed м/с ${TARGET_TYPE[$target_id]}" >>"$RLS_LOG"
 								if [[ $(check_trajectory_intersection "$prev_x" "$prev_y" "$x" "$y") -eq 1 ]]; then
 									echo "$detection_time РЛС$RLS_NUM Цель ID:$target_id движется в сторону СПРО"
 									encrypt_and_save_message "$DETECTIONS_DIR/" "$detection_time РЛС$RLS_NUM $target_id X:$x Y:$y $speed ББ БР-1" &
